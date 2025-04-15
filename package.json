@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/main.js",
-  "productName": "Turtle",
+  "productName": "Abstract Builder",
   "scripts": {
     "dev": "tsc && cross-env NODE_ENV=development concurrently \"vite\" \"cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true electron .\"",
     "test": "tsc;NODE_ENV=test electron .",
@@ -19,7 +19,19 @@
       "target": [
         "dmg"
       ],
-      "icon": "dist/renderer/designSource/icon.icns"
+      "icon": "dist/renderer/designSource/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis", 
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "dist/renderer/designSource/icon.ico",
+      "verifyUpdateCodeSignature": true
     },
     "files": [
       "dist/**/*",
@@ -31,14 +43,14 @@
     "publish": {
       "provider": "github",
       "owner": "sanrabbit123",
-      "repo": "your-repo-name",
+      "repo": "builder",
       "private": false,
       "releaseType": "release"
     },
     "asar": true
   },
   "keywords": [],
-  "author": "",
+  "author": "sanrabbit123",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -56,6 +68,7 @@
     "@codemirror/view": "^6.36.5",
     "axios": "^1.8.4",
     "electron-updater": "^6.6.2",
+    "electron-log": "^5.3.3",
     "gsap": "^3.12.5"
   },
   "devDependencies": {
@@ -65,7 +78,6 @@
     "cross-env": "^7.0.3",
     "electron": "^35.1.5",
     "electron-builder": "^26.0.12",
-    "electron-log": "^5.3.3",
     "esbuild": "^0.25.2",
     "prettier": "^3.5.3",
     "ts-loader": "^9.5.1",

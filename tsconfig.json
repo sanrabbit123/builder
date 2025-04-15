@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "strict": true, 
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "rootDir": "./source",
+    "outDir": "./dist", 
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "noImplicitThis": false,
+    "plugins": [
+      {
+        "transform": "typescript-transform-paths",
+        "afterDeclarations": true
+      }
+    ]
+  },
+  "include": [
+    "./source/main.ts",
+    "./source/preload.ts"
+  ], 
+  "exclude": [
+    "./node_modules"
+  ]
+}

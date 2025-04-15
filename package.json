@@ -1,0 +1,77 @@
+{
+  "name": "turtle",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/main.js",
+  "productName": "Turtle",
+  "scripts": {
+    "dev": "tsc && cross-env NODE_ENV=development concurrently \"vite\" \"cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true electron .\"",
+    "test": "tsc;NODE_ENV=test electron .",
+    "front": "rm -rf dist/renderer;vite build",
+    "tsc": "tsc",
+    "build": "cross-env NODE_ENV=production tsc && electron-builder"
+  },
+  "build": {
+    "appId": "com.abstractcloud.abstractbuilder",
+    "productName": "Abstract Builder",
+    "copyright": "Copyright © 2025 Abstract Cloud",
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "dist/renderer/designSource/icon.icns"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "dist/main.js"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "sanrabbit123",
+      "repo": "your-repo-name",
+      "private": false,
+      "releaseType": "release"
+    },
+    "asar": true
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.18.6",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.9",
+    "@codemirror/lang-javascript": "^6.2.3",
+    "@codemirror/lang-python": "^6.1.7",
+    "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/lint": "^6.8.5",
+    "@codemirror/search": "^6.5.10",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.5",
+    "axios": "^1.8.4",
+    "electron-updater": "^6.6.2",
+    "gsap": "^3.12.5"
+  },
+  "devDependencies": {
+    "@types/electron": "^1.4.38",
+    "@types/node": "^22.14.1",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12",
+    "electron-log": "^5.3.3",
+    "esbuild": "^0.25.2",
+    "prettier": "^3.5.3",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.8.3",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-node-externals": "^3.0.0"
+  }
+}

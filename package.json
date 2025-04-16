@@ -1,13 +1,15 @@
 {
   "name": "abstractbuilder",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
   "productName": "Abstract Builder",
   "scripts": {
     "tsc": "tsc",
     "build": "cross-env NODE_ENV=production tsc && electron-builder --mac --publish always",
-    "macbuilder": "dotenv -e .env -- npm run build"
+    "macbuilder": "dotenv -e .env -- npm run build",
+    "build2": "cross-env NODE_ENV=production tsc && electron-builder --win --publish always",
+    "winbuilder": "dotenv -e .env -- npm run build2"
   },
   "build": {
     "appId": "com.abstractcloud.abstractbuilder",
@@ -80,7 +82,7 @@
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "dotenv-cli": "^8.0.0",
-    "electron": "^35.1.5",
+    "electron": "^34.2.3",
     "electron-builder": "^26.0.12",
     "esbuild": "^0.25.2",
     "prettier": "^3.5.3",

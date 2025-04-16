@@ -1,6 +1,6 @@
 {
   "name": "abstractbuilder",
-  "version": "1.0.5",
+  "version": "1.0.8",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
   "productName": "Abstract Builder",
@@ -29,7 +29,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64"
           ]

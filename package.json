@@ -1,15 +1,12 @@
 {
-  "name": "turtle",
-  "version": "1.0.0",
+  "name": "abstractbuilder",
+  "version": "1.0.1",
   "description": "",
   "main": "dist/main.js",
   "productName": "Abstract Builder",
   "scripts": {
-    "dev": "tsc && cross-env NODE_ENV=development concurrently \"vite\" \"cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true electron .\"",
-    "test": "tsc;NODE_ENV=test electron .",
-    "front": "rm -rf dist/renderer;vite build",
     "tsc": "tsc",
-    "build": "cross-env NODE_ENV=production tsc && electron-builder"
+    "build": "cross-env NODE_ENV=production tsc && electron-builder --mac --publish always"
   },
   "build": {
     "appId": "com.abstractcloud.abstractbuilder",
@@ -21,13 +18,16 @@
       ],
       "icon": "dist/renderer/designSource/icon.icns",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "identity": "Developer ID Application: Changkyu Bae (JZU74V55DB)"
     },
     "win": {
       "target": [
         {
           "target": "nsis", 
-          "arch": ["x64"]
+          "arch": [ "x64" ]
         }
       ],
       "icon": "dist/renderer/designSource/icon.ico",

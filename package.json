@@ -6,6 +6,7 @@
   "productName": "Abstract Builder",
   "scripts": {
     "tsc": "tsc",
+    "compile": "cross-env NODE_ENV=production tsc",
     "build": "cross-env NODE_ENV=production tsc && electron-builder --mac --publish always",
     "macbuilder": "dotenv -e .env -- npm run build",
     "build2": "cross-env NODE_ENV=production tsc && electron-builder --win --publish always",

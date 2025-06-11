@@ -44,13 +44,11 @@ if (process.env.NODE_ENV === "development") {
 
 let mainWindow: BrowserWindow | null = null;
 
-// === 신규: 렌더러에 상태/정보 전달 함수 ===
 const sendToRenderer = (channel: string, ...args: any[]) => {
   logger.info(`Sending message to renderer [${channel}]:`, args);
   mainWindow?.webContents.send(channel, ...args);
 }
 
-// === 기존 코드 수정: createWindow 함수 ===
 const createWindow = () => {
   if (iconPath && existsSync(iconPath)) {
     const iconImage = nativeImage.createFromPath(iconPath);
@@ -82,11 +80,18 @@ const createWindow = () => {
       mainWindow?.webContents.openDevTools();
     }, 0);
   } else {
+    const targetUrl: string = "https://abstractcloud-press.com/path/home?pwadisable=true";
     const indexPath = path.join(__dirname, "./renderer/index.html");
-    if (existsSync(indexPath)) {
-      mainWindow?.loadFile(indexPath);
-    } else {
-      logger.error("Production index.html not found:", indexPath);
+    if (mainWindow !== null) {
+      setTimeout(() => {
+        mainWindow?.loadURL(targetUrl).catch((err) => {
+          if (existsSync(indexPath)) {
+            mainWindow?.loadFile(indexPath).catch((e) => console.log(e));
+          } else {
+            console.error("index.html not found:", indexPath);
+          }
+        });
+      }, 0);
     }
   }
 

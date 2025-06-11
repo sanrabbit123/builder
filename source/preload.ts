@@ -3,7 +3,6 @@ import { UpdateInfo, ProgressInfo } from 'electron-updater';
 
 // === 기존 API 노출 ===
 contextBridge.exposeInMainWorld("api", {
-  // 예시: greet 함수 (기존 로직 유지)
   greet: (name: string): Promise<string> => ipcRenderer.invoke("greet", name),
   // 여기에 다른 기존 api 함수들이 있다면 그대로 둡니다.
 });

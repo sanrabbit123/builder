@@ -492,7 +492,14 @@
 </head><body>
 <div style="display: none;position: absolute;opacity: 0;font-size: 0px;"></div>
 <div id="totalcontents"></div>
-<script type="module" >
-window.currentVersion = {"key":"turtle_250611_v5","date":"2025-06-11T14:12:37.323Z","version":5};
-</script>
-<script type="module" src="https://message.abstract-rabbit.xyz/pathAnimator.mjs"></script></body></html>
+<script type="module">
+import { PathAnimator } from "./pathAnimator.mjs";
+
+window.currentVersion = {"key":"turtle_250611_v6","date":"2025-06-11T14:33:33.660Z","version":6};
+
+const start = async () => {
+  const app = new PathAnimator();
+  await app.launching();
+}
+start().catch((e) => console.log(e));
+</script></script></body></html>

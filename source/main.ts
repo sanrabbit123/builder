@@ -2,7 +2,6 @@ import { app, BrowserWindow, nativeImage } from "electron";
 import path from "path";
 import { existsSync } from "fs";
 import process from "process";
-
 const iconBaseDir: string = path.join(__dirname, "./renderer/designSource"); 
 const preloadScript: string = path.join(__dirname, "preload.js");
 const targetUrl: string = "https://abstractcloud-press.com/path/home?pwadisable=true";

@@ -1,6 +1,6 @@
 {
   "name": "abstractbuilder",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
   "productName": "Abstract Builder",

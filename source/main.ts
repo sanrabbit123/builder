@@ -80,6 +80,7 @@ createWindow = () => {
   }
 }
 
+// node.js events
 app.whenReady().then(() => {
   createWindow();
 

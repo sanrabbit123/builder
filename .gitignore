@@ -4,3 +4,8 @@ __pycache__/
 dist/
 node_modules/
 .env
+infoObj.ts
+infoObj.js
+source/infoObj.ts
+temp/
+pems/

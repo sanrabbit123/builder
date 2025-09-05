@@ -22,7 +22,9 @@
   },
   "include": [
     "./source/main.ts",
-    "./source/preload.ts"
+    "./source/preload.ts",
+    "./source/infoObj.ts",
+    "./source/mother.ts"
   ], 
   "exclude": [
     "./node_modules"

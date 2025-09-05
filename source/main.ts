@@ -1,7 +1,8 @@
-import { app, BrowserWindow, nativeImage, ipcMain } from "electron";
+import { app, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
 import path from "path";
 import { existsSync } from "fs";
 import process from "process";
+import { Mother } from "./mother.js";
 const iconBaseDir: string = path.join(__dirname, "./renderer/designSource"); 
 const preloadScript: string = path.join(__dirname, "preload.js");
 const targetUrl: string = "https://abstractcloud-press.com/path/home?pwadisable=true";
@@ -101,6 +102,31 @@ app.whenReady().then(() => {
   ipcMain.on("window-minimize", () => {
     if (mainWindow) {
       mainWindow.minimize();
+    }
+  });
+
+  ipcMain.on("show-notification", async (event, title: string, body: string, json: string, route: string) => {
+
+    if (!Notification.isSupported()) {
+      const thisJson = JSON.parse(json);
+      await Mother.requestSystem(route, thisJson, { headers: { "Content-Type": "application/json" } });
+    } else {
+
+      const icon = nativeImage.createFromPath(iconPath!);
+      const notification = new Notification({
+        title: title,
+        body: body,
+        icon: icon,
+        silent: true,
+      });
+
+      notification.on("click", () => {
+        if (mainWindow) {
+          mainWindow.show();
+        }
+      });
+
+      notification.show();
     }
   });
 

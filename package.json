@@ -1,6 +1,6 @@
 {
   "name": "abstractbuilder",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
   "productName": "Abstract Builder",
@@ -20,6 +20,10 @@
       "target": [
         "dmg",
         "zip"
+      ],
+      "arch": [
+        "x64",
+        "arm64"
       ],
       "icon": "dist/renderer/designSource/icon.icns",
       "hardenedRuntime": true,
@@ -73,7 +77,7 @@
     "@codemirror/search": "^6.5.10",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.5",
-    "axios": "^1.9.0",
+    "axios": "^1.11.0",
     "electron-log": "^5.3.3",
     "electron-updater": "^6.6.2",
     "gsap": "^3.12.5"

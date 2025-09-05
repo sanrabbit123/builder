@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   toggleMaximize: () => ipcRenderer.send("window-maximize"),
   close: () => ipcRenderer.send("window-close"),
   minimize: () => ipcRenderer.send("window-minimize"),
+  showNotification: (title: string, body: string, json: string, route: string) => ipcRenderer.send("show-notification", title, body, json, route),
 });
 
 contextBridge.exposeInMainWorld("api", {

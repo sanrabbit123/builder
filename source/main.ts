@@ -46,7 +46,13 @@ createWindow = () => {
       preload: preloadScript,
       contextIsolation: true,
       nodeIntegration: false
-    }
+    },
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      color: "#ffffff", // 제목 표시줄 배경색 (하얀색)
+      symbolColor: "#000000" // 아이콘 색상 (검은색)
+    },
+    trafficLightPosition: { x: 15, y: 10 } // macOS 신호등 버튼 위치 조정
   });
 
   if (mainWindow !== null) {

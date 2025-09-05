@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage } from "electron";
+import { app, BrowserWindow, nativeImage, ipcMain } from "electron";
 import path from "path";
 import { existsSync } from "fs";
 import process from "process";
@@ -45,14 +45,9 @@ createWindow = () => {
     webPreferences: {
       preload: preloadScript,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: true
     },
-    titleBarStyle: "hidden",
-    titleBarOverlay: {
-      color: "#ffffff", // 제목 표시줄 배경색 (하얀색)
-      symbolColor: "#000000" // 아이콘 색상 (검은색)
-    },
-    trafficLightPosition: { x: 15, y: 10 } // macOS 신호등 버튼 위치 조정
+    frame: false,
   });
 
   if (mainWindow !== null) {
@@ -86,6 +81,29 @@ createWindow = () => {
 
 app.whenReady().then(() => {
   createWindow();
+
+  ipcMain.on("window-maximize", () => {
+    if (mainWindow) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+    }
+  });
+
+  ipcMain.on("window-close", () => {
+    if (mainWindow) {
+      mainWindow.close();
+    }
+  });
+
+  ipcMain.on("window-minimize", () => {
+    if (mainWindow) {
+      mainWindow.minimize();
+    }
+  });
+
   app.on("activate", function () {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();

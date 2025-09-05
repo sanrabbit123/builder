@@ -3,6 +3,7 @@ import path from "path";
 import { existsSync } from "fs";
 import process from "process";
 import { Mother } from "./mother.js";
+
 const iconBaseDir: string = path.join(__dirname, "./renderer/designSource"); 
 const preloadScript: string = path.join(__dirname, "preload.js");
 const targetUrl: string = "https://abstractcloud-press.com/path/home?pwadisable=true";
@@ -15,8 +16,8 @@ let iconPath: string | undefined;
 let mainWindow: BrowserWindow | null;
 let createWindow: () => void;
 
+// icon path setting
 mainWindow = null;
-
 switch (process.platform) {
   case "win32":
     iconPath = path.join(iconBaseDir, `${iconBaseName}.ico`);
@@ -29,6 +30,7 @@ switch (process.platform) {
     break;
 }
 
+// main window setting
 createWindow = () => {
   if (iconPath && existsSync(iconPath)) {
     const iconImage = nativeImage.createFromPath(iconPath);
@@ -138,12 +140,14 @@ app.whenReady().then(() => {
   });
 });
 
+// etc events
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
+// dev cert
 if (process.env.NODE_ENV === "development") {
   app.on("certificate-error", (event, webContents, url, error, certificate, callback) => {
     const requestUrl = new URL(url);

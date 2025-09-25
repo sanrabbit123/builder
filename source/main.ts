@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
+import { app, session, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
 import path from "path";
 import { existsSync } from "fs";
 import process from "process";
@@ -48,7 +48,7 @@ createWindow = () => {
     webPreferences: {
       preload: preloadScript,
       contextIsolation: true,
-      nodeIntegration: true
+      nodeIntegration: false
     },
     frame: false,
   });
@@ -84,6 +84,23 @@ createWindow = () => {
 
 // node.js events
 app.whenReady().then(() => {
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        "Content-Security-Policy": [
+          "default-src 'self' https://abstractcloud-press.com;",
+          "script-src 'self' 'unsafe-inline' https://*.google-analytics.com https://*.naver.net;",
+          "style-src 'self' 'unsafe-inline';",
+          "img-src 'self' data: https:;",
+          "font-src 'self' data:;",
+          "connect-src 'self' https://*.google-analytics.com https://*.naver.net https://abstractcloud-press.com;",
+        ].join(" "),
+      },
+    });
+  });
+
   createWindow();
 
   ipcMain.on("window-maximize", () => {

@@ -1,87 +1,17 @@
 import { ADDRESS } from "./infoObj.js";
+import { Dictionary, List, RequestData, Matrix, FolderMap, FileSystemType, Unique } from "./classStorage/dictionary.js";
 import http2 from "http2";
 import querystring from "querystring";
 import fsPromise from "fs/promises";
 import fs from "fs";
+import os from "os";
 import { exec, spawn } from "child_process";
 import path from "path";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import https from "https";
-
-export interface Dictionary {
-  [ key: string ]: any;
-}
-
-export type List = Array<any>;
-
-export type RequestData = Dictionary | List | string;
-
-export type Matrix = Array<any[]>;
-
-type FolderMap = { name: string; path: string; contents: string; };
-
-type FileSystemType = "read" | "readBuffer" | "readString" | "readFirstString" | "readFirstBuffer" | "readBinary" | "readJson" | "readDir" | "readFolder" | "readFolderContents" | "readFolderByCondition" | "readHead" | "readStream" | "write" | "writeString" | "writeBinary" | "writeJson" | "writeModule" | "size" | "mkdir" | "exist" | "isDir" | "remove" | "open" | "copyFile" | "copyFolder" | "copyDir" | "move";
-
-class Unique {
-
-  public static hex = (): string => {
-    const x: number = 16;
-    const length: number = 11;
-    const uniqueNumber: number = (new Date()).valueOf();
-    const hexChars: List = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' ];
-    const randomKeyWords: List = [ 'A', 'B', 'C', 'D', 'E', 'F' ];
-    let uniqueNumber_copied: number;
-    let maxExponent: number;
-    let cArr: any[];
-    let temp: number;
-    let hexString: string;
-    uniqueNumber_copied = uniqueNumber;
-    maxExponent = 0;
-    while (Math.pow(x, maxExponent) <= uniqueNumber) {
-      maxExponent++;
-    }
-    cArr = [];
-    for (let i = 0; i < maxExponent; i++) {
-      temp = ((uniqueNumber_copied / Math.pow(x, i)) % x);
-      cArr.push(temp);
-      uniqueNumber_copied = uniqueNumber_copied - (temp * Math.pow(x, i));
-    }
-    hexString = cArr.map((index) => { return hexChars[index] }).join('');
-    for (let i = 0; i < length; i++) {
-      hexString += hexChars[Math.floor(hexChars.length * Math.random())];
-    }
-    return randomKeyWords[Math.floor(randomKeyWords.length * Math.random())] + randomKeyWords[Math.floor(randomKeyWords.length * Math.random())] + hexChars[Math.floor(hexChars.length * Math.random())] + randomKeyWords[Math.floor(randomKeyWords.length * Math.random())] + String(uniqueNumber) + 'A' + hexString;
-  }
-
-  public static date = (): string => {
-    const zeroAddition = (num: number): string => { return (num < 10) ? `0${String(num)}` : String(num); }
-    const date: Date = new Date();
-    return `${String(date.getFullYear())}${zeroAddition(date.getMonth() + 1)}${zeroAddition(date.getDate())}${zeroAddition(date.getHours())}${zeroAddition(date.getMinutes())}${zeroAddition(date.getSeconds())}`;
-  }
-
-  public static string = (): string => {
-    return String((new Date()).valueOf()) + String(Math.round(Math.random() * 10000));
-  }
-
-  public static number = (): number => {
-    return Number(String((new Date()).valueOf()) + String(Math.round(Math.random() * 10000)));
-  }
-
-  public static short = (): string => {
-    const lengthDelta: number = 8;
-    const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-    const alphabetLength = alphabet.length;
-    const buffer = new Uint8Array(lengthDelta);
-    globalThis.crypto.getRandomValues(buffer);
-    let id: string = '';
-    for (let i = 0; i < lengthDelta; i++) {
-      const randomIndex = buffer[i] % alphabetLength; 
-      id += alphabet[randomIndex]; 
-    }
-    return id;
-  }
-
-}
+import { pipeline } from "stream/promises";
+import JSZip from "jszip";
+import got, { Options } from "got";
 
 class Mother {
 
@@ -121,16 +51,16 @@ class Mother {
           }
         } else {
           for (let i in json) {
-            if (typeof json[i] === "string") {
-              if (/^[\{\[]/.test(json[i].trim()) && /[\}\]]$/.test(json[i].trim())) {
+            if (typeof json[ i ] === "string") {
+              if (/^[\{\[]/.test(json[ i ].trim()) && /[\}\]]$/.test(json[ i ].trim())) {
                 try {
-                  temp = JSON.parse(json[i]);
+                  temp = JSON.parse(json[ i ]);
                   boo = true;
                 } catch (e) {
                   boo = false;
                 }
                 if (boo) {
-                  json[i] = Mother.equal(json[i]);
+                  json[ i ] = Mother.equal(json[ i ]);
                 }
               }
             }
@@ -187,7 +117,7 @@ class Mother {
     configBoo = false;
     jsonBoo = true;
     nvpBoo = false;
-  
+
     if (dataKeys.length === 0 && configKeys.length === 0) {
       method = "get";
       data = {};
@@ -203,7 +133,7 @@ class Mother {
       dataBoo = true;
       configBoo = (configKeys.length === 0) ? false : true;
     }
-  
+
     if (configBoo) {
       if (/json/gi.test(JSON.stringify(config))) {
         jsonBoo = true;
@@ -213,7 +143,7 @@ class Mother {
         if (data !== "string") {
           if (typeof data === "object" && data !== null && !Array.isArray(data)) {
             for (let key in data) {
-              dataValue = data[key];
+              dataValue = data[ key ];
               dataString += key.replace(/[\=\&]/g, '');
               dataString += '=';
               if (typeof dataValue === "object") {
@@ -235,9 +165,9 @@ class Mother {
       } else {
         if (config.headers === undefined) {
           config.headers = {};
-          config.headers["Content-Type"] = "application/json";
+          config.headers[ "Content-Type" ] = "application/json";
         } else {
-          config.headers["Content-Type"] = "application/json";
+          config.headers[ "Content-Type" ] = "application/json";
         }
         jsonBoo = true;
       }
@@ -250,7 +180,7 @@ class Mother {
     } else {
       jsonBoo = true;
       config.headers = {};
-      config.headers["Content-Type"] = "application/json";
+      config.headers[ "Content-Type" ] = "application/json";
     }
 
     if (method === "get") {
@@ -265,16 +195,16 @@ class Mother {
         delete config.method;
       }
     }
-  
+
     urlArr = url.split("/").filter((s) => { return s !== "" });
-  
+
     protocol = urlArr.shift();
     host = urlArr.shift();
     path = "/" + urlArr.join("/");
     baseUrl = protocol + "//" + host;
 
     return new Promise((resolve, reject) => {
-  
+
       client = http2.connect(baseUrl);
 
       if (method === "get") {
@@ -283,23 +213,23 @@ class Mother {
         } else {
           configOption = {};
         }
-        configOption[":method"] = "GET";
-        configOption[":path"] = path;
+        configOption[ ":method" ] = "GET";
+        configOption[ ":path" ] = path;
       } else if (method === "post") {
         if (configBoo) {
           configOption = { ...config.headers };
         } else {
           configOption = {};
         }
-        configOption[":method"] = "POST";
-        configOption[":path"] = path;
-        if (configOption["Content-Type"] === undefined) {
-          configOption["Content-Type"] = "application/json";
+        configOption[ ":method" ] = "POST";
+        configOption[ ":path" ] = path;
+        if (configOption[ "Content-Type" ] === undefined) {
+          configOption[ "Content-Type" ] = "application/json";
         }
         if (typeof data === "object") {
-          configOption["Content-Length"] = Buffer.byteLength(JSON.stringify(data));
+          configOption[ "Content-Length" ] = Buffer.byteLength(JSON.stringify(data));
         } else {
-          configOption["Content-Length"] = Buffer.byteLength(data);
+          configOption[ "Content-Length" ] = Buffer.byteLength(data);
         }
       } else if (method === "patch") {
         if (configBoo) {
@@ -307,24 +237,24 @@ class Mother {
         } else {
           configOption = {};
         }
-        configOption[":method"] = "PATCH";
-        configOption[":path"] = path;
-        if (configOption["Content-Type"] === undefined) {
-          configOption["Content-Type"] = "application/json";
+        configOption[ ":method" ] = "PATCH";
+        configOption[ ":path" ] = path;
+        if (configOption[ "Content-Type" ] === undefined) {
+          configOption[ "Content-Type" ] = "application/json";
         }
         if (typeof data === "object") {
-          configOption["Content-Length"] = Buffer.byteLength(JSON.stringify(data));
+          configOption[ "Content-Length" ] = Buffer.byteLength(JSON.stringify(data));
         } else {
-          configOption["Content-Length"] = Buffer.byteLength(data);
+          configOption[ "Content-Length" ] = Buffer.byteLength(data);
         }
       }
 
-      configOption[Mother.requestSecretKey] = Mother.requestSecretValue;
+      configOption[ Mother.requestSecretKey ] = Mother.requestSecretValue;
       req = client.request(configOption);
       client.on("error", () => {
         reject(null);
       })
-  
+
       res = [];
       req.on("data", (chunk: any) => {
         res.push(chunk);
@@ -337,7 +267,7 @@ class Mother {
         client.close();
         resolve(Mother.equal(body));
       });
-  
+
       if (method === "get") {
         req.end();
       } else {
@@ -347,9 +277,9 @@ class Mother {
           req.end(data);
         }
       }
-  
+
     });
-  
+
   }
 
   public static axiosRequest = (url: string, data: RequestData = {}, config: Dictionary = {}): Promise<any> => {
@@ -371,7 +301,7 @@ class Mother {
     configBoo = false;
     jsonBoo = true;
     nvpBoo = false;
-  
+
     if (dataKeys.length === 0 && configKeys.length === 0) {
       method = "get";
       data = {};
@@ -390,23 +320,23 @@ class Mother {
 
     if (config.headers === undefined) {
       config.headers = {};
-      config.headers["Content-Type"] = "application/json";
+      config.headers[ "Content-Type" ] = "application/json";
       jsonBoo = true;
     }
-  
+
     if (configBoo) {
       if (/json/gi.test(JSON.stringify(config))) {
         jsonBoo = true;
         if (config.headers === undefined) {
           config.headers = {};
-          config.headers["Content-Type"] = "application/json";
+          config.headers[ "Content-Type" ] = "application/json";
           jsonBoo = true;
         } else {
           if (config.formData === true) {
             jsonBoo = false;
             nvpBoo = false;
           } else {
-            config.headers["Content-Type"] = "application/json";
+            config.headers[ "Content-Type" ] = "application/json";
             jsonBoo = true;
           }
         }
@@ -416,7 +346,7 @@ class Mother {
         if (typeof data !== "string") {
           if (typeof data === "object" && data !== null && !Array.isArray(data)) {
             for (let key in data) {
-              dataValue = data[key];
+              dataValue = data[ key ];
               if (typeof dataValue === "object") {
                 if (dataValue instanceof Date) {
                   urlData.append(key, JSON.stringify(dataValue).replace(/^\"/g, '').replace(/\"$/g, ''));
@@ -435,14 +365,14 @@ class Mother {
       } else {
         if (config.headers === undefined) {
           config.headers = {};
-          config.headers["Content-Type"] = "application/json";
+          config.headers[ "Content-Type" ] = "application/json";
           jsonBoo = true;
         } else {
           if (config.formData === true) {
             jsonBoo = false;
             nvpBoo = false;
           } else {
-            config.headers["Content-Type"] = "application/json";
+            config.headers[ "Content-Type" ] = "application/json";
             jsonBoo = true;
           }
         }
@@ -462,9 +392,9 @@ class Mother {
     } else {
       jsonBoo = true;
       config.headers = {};
-      config.headers["Content-Type"] = "application/json";
+      config.headers[ "Content-Type" ] = "application/json";
     }
-  
+
     if (method === "get") {
       getData = "?";
       getData += querystring.stringify(data as Dictionary);
@@ -477,7 +407,7 @@ class Mother {
     if (config.method !== undefined) {
       delete config.method;
     }
-  
+
     return new Promise((resolve, reject) => {
       if (method === "get") {
         if (!configBoo) {
@@ -504,7 +434,7 @@ class Mother {
             reject(error);
           });
         }
-  
+
       } else if (method === "post") {
         if (jsonBoo) {
           const thisConfig: Dictionary = { ...config };
@@ -540,13 +470,13 @@ class Mother {
           form = new FormData();
           if (typeof data === "object" && data !== null && !Array.isArray(data)) {
             for (let key in data as Dictionary | List) {
-              formDataValue = data[key];
+              formDataValue = data[ key ];
               if (typeof formDataValue === "object" && formDataValue !== null) {
                 if (formDataValue.constructor.name === "ReadStream") {
                   if (/\.png$/gi.test(formDataValue.path)) {
-                    form.append(key, formDataValue, { filename: formDataValue.path.split("/")[formDataValue.path.split("/").length - 1], contentType: "image/png" });
+                    form.append(key, formDataValue, { filename: formDataValue.path.split("/")[ formDataValue.path.split("/").length - 1 ], contentType: "image/png" });
                   } else if (/\.(jpg|jpeg)$/gi.test(formDataValue.path)) {
-                    form.append(key, formDataValue, { filename: formDataValue.path.split("/")[formDataValue.path.split("/").length - 1], contentType: "image/jpeg" });
+                    form.append(key, formDataValue, { filename: formDataValue.path.split("/")[ formDataValue.path.split("/").length - 1 ], contentType: "image/jpeg" });
                   } else {
                     form.append(key, formDataValue);
                   }
@@ -562,13 +492,13 @@ class Mother {
               }
             }
           }
-          
+
           form.getLength((err: any, length: number) => {
             if (err) {
               reject(err);
             } else {
               formHeaders = form.getHeaders();
-              formHeaders["Content-Length"] = length;
+              formHeaders[ "Content-Length" ] = length;
               if (!configBoo) {
                 axios.post(url, form, { headers: { ...formHeaders } }).then((response: AxiosResponse) => {
                   if (response.data !== undefined && response.data !== null) {
@@ -583,16 +513,16 @@ class Mother {
                 finalConfig = { headers: { ...formHeaders } };
                 if (config.headers !== undefined) {
                   for (let z in config.headers) {
-                    finalConfig.headers[z] = config.headers[z];
+                    finalConfig.headers[ z ] = config.headers[ z ];
                   }
                   for (let z in config) {
                     if (z !== "headers") {
-                      finalConfig[z] = config[z];
+                      finalConfig[ z ] = config[ z ];
                     }
                   }
                 } else {
                   for (let z in config) {
-                    finalConfig[z] = config[z];
+                    finalConfig[ z ] = config[ z ];
                   }
                 }
                 finalConfig.headers[ Mother.requestSecretKey ] = Mother.requestSecretValue;
@@ -659,18 +589,18 @@ class Mother {
     if (str.trim() === "예정" || str.trim() === "진행중" || str.trim() === "미정") {
       return (new Date(3800, 0, 1));
     }
-  
-    const zeroAddition = (num: number): string => { return (num < 10) ? `0${String(num)}` : String(num); };
+
+    const zeroAddition = (num: number): string => { return (num < 10) ? `0${ String(num) }` : String(num); };
     let tempArr: List, tempArr2: List, tempArr3: List, tempArr4: List, tempArr5: List;
     str = str.trim().replace(/[\~\t]/gi, '').trim();
-  
+
     if (/T/g.test(str) && /Z$/.test(str) && /^[0-9]/.test(str) && /\-/g.test(str) && /\:/g.test(str)) {
       if (!Number.isNaN((new Date(str)).getTime())) {
         return new Date(str);
       }
     }
     if (/T/g.test(str) && /\+/g.test(str)) {
-      str = str.split("+")[0] + "Z";
+      str = str.split("+")[ 0 ] + "Z";
       if (!Number.isNaN((new Date(str)).getTime())) {
         return new Date(str);
       }
@@ -688,26 +618,26 @@ class Mother {
       } else if (/^[0-9][0-9][ ]*[년][ ]*[0-9]/.test(str)) {
         tempArr = str.split("년").map((s) => { return s.trim(); });
         if (/월/gi.test(str)) {
-          tempArr4 = tempArr[1].trim().split("월");
+          tempArr4 = tempArr[ 1 ].trim().split("월");
           if (/일/gi.test(str)) {
-            str = String(Number(tempArr[0].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr4[0].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[1].split("일")[0].replace(/[^0-9]/gi, '')));
-          } else {  
-            str = String(Number(tempArr[0].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr4[0].replace(/[^0-9]/gi, ''))) + "-01";
+            str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr4[ 0 ].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[ 1 ].split("일")[ 0 ].replace(/[^0-9]/gi, '')));
+          } else {
+            str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr4[ 0 ].replace(/[^0-9]/gi, ''))) + "-01";
           }
         } else {
-          str = String(Number(tempArr[0].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr[1].replace(/[^0-9]/gi, ''))) + "-01";
+          str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, '')) + 2000) + "-" + zeroAddition(Number(tempArr[ 1 ].replace(/[^0-9]/gi, ''))) + "-01";
         }
       } else if (/^[0-9][0-9][0-9][0-9][ ]*[년][ ]*[0-9]/.test(str)) {
         tempArr = str.split("년").map((s) => { return s.trim(); });
         if (/월/gi.test(str)) {
-          tempArr4 = tempArr[1].trim().split("월");
+          tempArr4 = tempArr[ 1 ].trim().split("월");
           if (/일/gi.test(str)) {
-            str = String(Number(tempArr[0].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[0].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[1].split("일")[0].replace(/[^0-9]/gi, '')));
-          } else {  
-            str = String(Number(tempArr[0].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[0].replace(/[^0-9]/gi, ''))) + "-01";
+            str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[ 0 ].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[ 1 ].split("일")[ 0 ].replace(/[^0-9]/gi, '')));
+          } else {
+            str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr4[ 0 ].replace(/[^0-9]/gi, ''))) + "-01";
           }
         } else {
-          str = String(Number(tempArr[0].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr[1].replace(/[^0-9]/gi, ''))) + "-01";
+          str = String(Number(tempArr[ 0 ].replace(/[^0-9]/gi, ''))) + "-" + zeroAddition(Number(tempArr[ 1 ].replace(/[^0-9]/gi, ''))) + "-01";
         }
       } else if (/^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$/.test(str.trim())) {
         str = str.slice(0, 4) + "-" + str.slice(4, 6) + "-" + str.slice(6);
@@ -724,204 +654,204 @@ class Mother {
       } else if (/^[0-9][0-9][ ]*\-[ ]*[0-9]$/.test(str)) {
         str = str.split("-").map((s) => { return s.trim() }).join("-");
         tempArr5 = str.split("-");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\-[ ]*[0-9]$/.test(str)) {
         str = str.split("-").map((s) => { return s.trim() }).join("-");
         tempArr5 = str.split("-");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][ ]+[0-9][0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9][0-9][ ]+[0-9][0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9][ ]+[0-9][0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9][0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]+[0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]+[0-9][0-9][ ]+[0-9][0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]+[0-9][ ]+[0-9][0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]+[0-9][0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]+[0-9][ ]+[0-9]$/.test(str)) {
         str = str.split(" ").map((s) => { return s.trim() }).filter((s) => { return s !== "" }).join(" ");
         tempArr5 = str.split(" ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9][0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9][0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\/[ ]*[0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9][0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9][ ]*\/[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9][0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\/[ ]*[0-9][ ]*\/[ ]*[0-9]$/.test(str)) {
         str = str.split("/").map((s) => { return s.trim() }).join("/");
         tempArr5 = str.split("/");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][0-9][ ]*\.?[ ]*$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9]\.[0-9][0-9][ ]*\.?[ ]*$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.?[ ]*$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.?[ ]*$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\.[ ]*[0-9][0-9][ ]*\.[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\.[ ]*[0-9][0-9][ ]*\.[ ]*[0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.[ ]*[0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][0-9][ ]*\.[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.[ ]*[0-9][0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][0-9][ ]*\.[ ]*[0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][ ]*\.[ ]*[0-9][ ]*\.[ ]*[0-9]$/.test(str)) {
         str = str.split(".").map((s) => { return s.trim() }).join(".");
         tempArr5 = str.split(".");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9]\. [0-9][0-9][ ]*\.?[ ]*$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9][0-9][ ]*\.?[ ]*$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9]\. [0-9][ ]*\.?[ ]*$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9]\.?$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + "01";
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + "01";
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9][0-9]\. [0-9][0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9]\. [0-9][0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9][0-9]\. [0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9][0-9][0-9]\. [0-9]\. [0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9]\. [0-9][0-9]\. [0-9][0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9]\. [0-9]\. [0-9][0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9]\. [0-9][0-9]\. [0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else if (/^[0-9][0-9]\. [0-9]\. [0-9]$/.test(str)) {
         tempArr5 = str.split(". ");
-        str = "20" + tempArr5[0] + "-" + zeroAddition(Number(tempArr5[1])) + "-" + zeroAddition(Number(tempArr5[2]));
+        str = "20" + tempArr5[ 0 ] + "-" + zeroAddition(Number(tempArr5[ 1 ])) + "-" + zeroAddition(Number(tempArr5[ 2 ]));
       } else {
         throw new Error("not date string : " + str);
       }
     }
-  
+
     if (/^[0-9][0-9][0-9][0-9]\-[0-9][0-9]\-[0-9][0-9]$/.test(str)) {
       tempArr = str.split('-');
-      return (new Date(Number(tempArr[0]), Number(tempArr[1]) - 1, Number(tempArr[2])));
+      return (new Date(Number(tempArr[ 0 ]), Number(tempArr[ 1 ]) - 1, Number(tempArr[ 2 ])));
     } else {
       tempArr = str.split(' ');
-      tempArr2 = tempArr[0].split('-');
-      tempArr3 = tempArr[1].split(':');
-      return (new Date(Number(tempArr2[0]), Number(tempArr2[1]) - 1, Number(tempArr2[2]), Number(tempArr3[0]), Number(tempArr3[1]), Number(tempArr3[2])));
+      tempArr2 = tempArr[ 0 ].split('-');
+      tempArr3 = tempArr[ 1 ].split(':');
+      return (new Date(Number(tempArr2[ 0 ]), Number(tempArr2[ 1 ]) - 1, Number(tempArr2[ 2 ]), Number(tempArr3[ 0 ]), Number(tempArr3[ 1 ]), Number(tempArr3[ 2 ])));
     }
   }
 
@@ -945,7 +875,7 @@ class Mother {
     let arr: string[] = inputStr.split('/');
     let newStr: string = '';
     for (let i of arr) {
-      if (!/ /g.test(i) && !/\&/g.test(i) && !/\(/g.test(i) && !/\)/g.test(i) &&!/\|/g.test(i) && !/</g.test(i) && !/>/g.test(i) && !/;/g.test(i) && !/\*/g.test(i) && !/\#/g.test(i) && !/\%/g.test(i) && !/\[/g.test(i) && !/\]/g.test(i) && !/\{/g.test(i) && !/\}/g.test(i) && !/\@/g.test(i) && !/\!/g.test(i) && !/\=/g.test(i) && !/\+/g.test(i) && !/\~/g.test(i) && !/\?/g.test(i) && !/\$/g.test(i)) {
+      if (!/ /g.test(i) && !/\&/g.test(i) && !/\(/g.test(i) && !/\)/g.test(i) && !/\|/g.test(i) && !/</g.test(i) && !/>/g.test(i) && !/;/g.test(i) && !/\*/g.test(i) && !/\#/g.test(i) && !/\%/g.test(i) && !/\[/g.test(i) && !/\]/g.test(i) && !/\{/g.test(i) && !/\}/g.test(i) && !/\@/g.test(i) && !/\!/g.test(i) && !/\=/g.test(i) && !/\+/g.test(i) && !/\~/g.test(i) && !/\?/g.test(i) && !/\$/g.test(i)) {
         newStr += i + '/';
       } else if (!/'/g.test(i)) {
         newStr += "'" + i + "'" + '/';
@@ -996,7 +926,7 @@ class Mother {
           if (command.length > 0) {
             if (command.every((s) => typeof s === "string")) {
               return new Promise((resolve, reject) => {
-                const name = command[0];
+                const name = command[ 0 ];
                 const program = spawn(name, command.slice(1));
                 let out: string;
                 out = "";
@@ -1012,7 +942,7 @@ class Mother {
                     throw new Error("invaild input");
                   }
                   return new Promise((resolve, reject) => {
-                    const name = arr[0];
+                    const name = arr[ 0 ];
                     const program = spawn(name, arr.slice(1));
                     let out: string;
                     out = "";
@@ -1065,13 +995,13 @@ class Mother {
     let hexes: any[] = (hash.match(/.{1,4}/g) || []);
     let back: string = "";
     for (let j = 0; j < hexes.length; j++) {
-      back += String.fromCharCode(parseInt(hexes[j], 16));
+      back += String.fromCharCode(parseInt(hexes[ j ], 16));
     }
     return back;
   }
 
   public static hexaJson = async (input: any, middleMode: boolean = false) => {
-    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
     const tokenStart: string = "__hexaFunctionStart__<<<";
     const tokenEnd: string = ">>>__hexaFunctionEnd__";
     const hexaFunction = async (input: any) => {
@@ -1091,13 +1021,13 @@ class Mother {
         let argArr: any[];
         let decodeFunction: any;
         let asyncBoo: boolean;
-  
+
         if (typeof input === "function") {
-  
+
           return tokenStart + (await toHex(input.toString())) + tokenEnd;
-  
+
         } else if (typeof input === "string") {
-  
+
           if ((new RegExp('^' + tokenStart)).test(input) && (new RegExp(tokenEnd + '$')).test(input)) {
             input = input.replace(new RegExp('^' + tokenStart), '').replace(new RegExp(tokenEnd + '$'), '');
             functionString = await toFunction(input);
@@ -1138,7 +1068,7 @@ class Mother {
           } else {
             return input;
           }
-  
+
         } else {
           throw new Error("invaild input");
         }
@@ -1156,10 +1086,10 @@ class Mother {
           const toJson = async function (obj: Dictionary) {
             try {
               for (let i in obj) {
-                if (typeof obj[i] === "function") {
-                  obj[i] = await hexaFunction(obj[i]);
-                } else if (typeof obj[i] === "object" && obj[i] !== null) {
-                  obj[i] = await toJson(obj[i]);
+                if (typeof obj[ i ] === "function") {
+                  obj[ i ] = await hexaFunction(obj[ i ]);
+                } else if (typeof obj[ i ] === "object" && obj[ i ] !== null) {
+                  obj[ i ] = await toJson(obj[ i ]);
                 }
               }
               return obj;
@@ -1180,10 +1110,10 @@ class Mother {
           const toObj = async function (obj: Dictionary) {
             try {
               for (let i in obj) {
-                if (typeof obj[i] === "string" && (new RegExp('^' + tokenStart)).test(obj[i])) {
-                  obj[i] = await hexaFunction(obj[i]);
-                } else if (typeof obj[i] === "object" && obj[i] !== null) {
-                  obj[i] = await toObj(obj[i]);
+                if (typeof obj[ i ] === "string" && (new RegExp('^' + tokenStart)).test(obj[ i ])) {
+                  obj[ i ] = await hexaFunction(obj[ i ]);
+                } else if (typeof obj[ i ] === "object" && obj[ i ] !== null) {
+                  obj[ i ] = await toObj(obj[ i ]);
                 }
               }
               return obj;
@@ -1224,26 +1154,26 @@ class Mother {
     original: string,
     exeMode: boolean = true,
   ): string => {
-    const jamoMap: { [key: string]: string } = {
+    const jamoMap: { [ key: string ]: string } = {
       // 초성 (Initials: U+1100 ~ U+1112)
-      "k4352": "g",  "k4353": "kk", "k4354": "n",  "k4355": "d",  "k4356": "tt",
-      "k4357": "r",  "k4358": "m",  "k4359": "b",  "k4360": "pp", "k4361": "s",
+      "k4352": "g", "k4353": "kk", "k4354": "n", "k4355": "d", "k4356": "tt",
+      "k4357": "r", "k4358": "m", "k4359": "b", "k4360": "pp", "k4361": "s",
       "k4362": "ss", "k4363": "",   // 초성 ㅇ (silent)
-      "k4364": "j",  "k4365": "jj", "k4366": "ch", "k4367": "k",  "k4368": "t",
-      "k4369": "p",  "k4370": "h",
+      "k4364": "j", "k4365": "jj", "k4366": "ch", "k4367": "k", "k4368": "t",
+      "k4369": "p", "k4370": "h",
       // 중성 (Vowels: U+1161 ~ U+1175)
-      "k4449": "a",  "k4450": "ae", "k4451": "ya", "k4452": "yae", "k4453": "eo",
-      "k4454": "e",  "k4455": "yeo", "k4456": "ye", "k4457": "o",  "k4458": "wa",
-      "k4459": "wae", "k4460": "oe", "k4461": "yo", "k4462": "oo",  "k4463": "wo",
+      "k4449": "a", "k4450": "ae", "k4451": "ya", "k4452": "yae", "k4453": "eo",
+      "k4454": "e", "k4455": "yeo", "k4456": "ye", "k4457": "o", "k4458": "wa",
+      "k4459": "wae", "k4460": "oe", "k4461": "yo", "k4462": "oo", "k4463": "wo",
       "k4464": "we", "k4465": "wi", "k4466": "yu", "k4467": "eu", "k4468": "ui",
       "k4469": "i",
       // 종성 (Finals: U+11A8 ~ U+11C2)
-      "k4520": "k",  "k4521": "kk", "k4522": "gs", "k4523": "n",  "k4524": "nj",
-      "k4525": "nh", "k4526": "d",  "k4527": "l",  "k4528": "lg", "k4529": "lm",
+      "k4520": "k", "k4521": "kk", "k4522": "gs", "k4523": "n", "k4524": "nj",
+      "k4525": "nh", "k4526": "d", "k4527": "l", "k4528": "lg", "k4529": "lm",
       "k4530": "lb", "k4531": "ls", "k4532": "lt", "k4533": "lp", "k4534": "lh",
-      "k4535": "m",  "k4536": "b",  "k4537": "bs", "k4538": "s",  "k4539": "ss",
+      "k4535": "m", "k4536": "b", "k4537": "bs", "k4538": "s", "k4539": "ss",
       "k4540": "ng", // 종성 ㅇ
-      "k4541": "j",  "k4542": "ch", "k4543": "k",  "k4544": "t",  "k4545": "p",
+      "k4541": "j", "k4542": "ch", "k4543": "k", "k4544": "t", "k4545": "p",
       "k4546": "h"
     };
     let lastDotIndex: number;
@@ -1257,7 +1187,7 @@ class Mother {
     if (exeMode) {
       lastDotIndex = original.lastIndexOf('.');
       baseName = lastDotIndex === -1 ? original.replace(/[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F a-zA-Z0-9_]/gi, "") : original.substring(0, lastDotIndex).replace(/[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F a-zA-Z0-9_]/gi, "");
-      exe = lastDotIndex === -1 ? '' : String(original.split(".").at(-1)).toLowerCase();  
+      exe = lastDotIndex === -1 ? '' : String(original.split(".").at(-1)).toLowerCase();
     } else {
       baseName = original.replace(/[^\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F a-zA-Z0-9_]/gi, "");
       exe = "";
@@ -1270,8 +1200,8 @@ class Mother {
 
     for (const char of normalizedBase) {
       thisKey = "k" + String(char.charCodeAt(0));
-      if (jamoMap[thisKey]) {
-        romanizedBase += jamoMap[thisKey];
+      if (jamoMap[ thisKey ]) {
+        romanizedBase += jamoMap[ thisKey ];
         lastCharWasMapped = true;
       } else if (char.match(/[a-zA-Z0-9]/)) {
         romanizedBase += char;
@@ -1280,8 +1210,8 @@ class Mother {
         romanizedBase += '_';
         lastCharWasMapped = false;
       } else if (char === '-' || char === '_') {
-         romanizedBase += char;
-         lastCharWasMapped = false;
+        romanizedBase += char;
+        lastCharWasMapped = false;
       }
     }
 
@@ -1319,7 +1249,7 @@ class Mother {
       await fsPromise.cp(sourcePath, finalDestinationPath, { recursive: true, force: true });
       try {
         await fsPromise.rm(sourcePath, { recursive: true, force: true });
-      } catch {}
+      } catch { }
       return finalDestinationPath;
     } catch (moveError) {
       throw moveError;

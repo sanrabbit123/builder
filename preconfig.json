@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJs",
+    "moduleResolution": "node",
     "strict": true, 
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -21,9 +21,7 @@
     ]
   },
   "include": [
-    "./source/main.ts",
-    "./source/apps/infoObj.ts",
-    "./source/apps/mother.ts"
+    "./source/preload.ts"
   ], 
   "exclude": [
     "./node_modules"

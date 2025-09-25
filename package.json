@@ -1,16 +1,20 @@
 {
   "name": "abstractbuilder",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
+  "type": "module",
   "productName": "Abstract Builder",
   "scripts": {
     "tsc": "tsc",
-    "compile": "cross-env NODE_ENV=production tsc",
-    "build": "cross-env NODE_ENV=production tsc && electron-builder --mac --publish always",
+    "compile": "cross-env NODE_ENV=production tsc && tsc -p ./preconfig.json",
+    "devcompile": "cross-env NODE_ENV=development tsc && tsc -p ./preconfig.json",
+    "develectron": "cross-env NODE_ENV=development electron .",
+    "build": "npm run compile && electron-builder --mac --publish always",
+    "build2": "npm run compile && electron-builder --win --publish always",
     "macbuilder": "dotenv -e .env -- npm run build",
-    "build2": "cross-env NODE_ENV=production tsc && electron-builder --win --publish always",
-    "winbuilder": "dotenv -e .env -- npm run build2"
+    "winbuilder": "dotenv -e .env -- npm run build2",
+    "dev": "npm run devcompile && npm run develectron"
   },
   "build": {
     "appId": "com.abstractcloud.abstractbuilder",
@@ -59,7 +63,6 @@
   "keywords": [],
   "author": "sanrabbit123",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/commands": "^6.8.1",
@@ -76,7 +79,12 @@
     "axios": "^1.11.0",
     "electron-log": "^5.3.3",
     "electron-updater": "^6.6.2",
-    "gsap": "^3.12.5"
+    "got": "^14.4.9",
+    "gsap": "^3.12.5",
+    "htmlparser2": "^10.0.0",
+    "https-proxy-agent": "^7.0.6",
+    "jszip": "^3.10.1",
+    "sharp": "^0.34.4"
   },
   "devDependencies": {
     "@types/electron": "^1.4.38",

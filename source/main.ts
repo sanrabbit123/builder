@@ -1,178 +1,203 @@
-import { app, session, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
+import { app, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
+import { App } from "electron/main";
 import path from "path";
 import { existsSync } from "fs";
 import process from "process";
-import { Mother } from "./mother.js";
+import { Mother } from "./apps/mother.js";
+import { fileURLToPath } from "url";
 
-const iconBaseDir: string = path.join(__dirname, "./renderer/designSource"); 
-const preloadScript: string = path.join(__dirname, "preload.js");
-const targetUrl: string = "https://abstractcloud-press.com/path/home?pwadisable=true";
-const localPort: string = "https://localhost:8000";
-const devUrl: string = localPort + "/path/home";
-const devServerUrl: URL = new URL(localPort);
-const indexPath: string = path.join(__dirname, "./renderer/index.html");
-const iconBaseName: string = "icon";
-let iconPath: string | undefined;
-let mainWindow: BrowserWindow | null;
-let createWindow: () => void;
+class Turtle {
 
-// icon path setting
-mainWindow = null;
-switch (process.platform) {
-  case "win32":
-    iconPath = path.join(iconBaseDir, `${iconBaseName}.ico`);
-    break;
-  case "darwin":
-    iconPath = path.join(iconBaseDir, `${iconBaseName}.icns`);
-    break;
-  default:
-    iconPath = path.join(iconBaseDir, `${iconBaseName}.png`);
-    break;
-}
+  private protocol: string = "https:";
+  private mainHost: string = "abstractcloud-press.com";
+  private mainPath: string = "/path/home?pwadisable=true";
+  private basePath: string = path.dirname(fileURLToPath(import.meta.url));
+  private localPort: number = 8000;
+  
+  public iconBaseDir: string;
+  public preloadScript: string;
+  public targetUrl: string;
+  public localTarget: string;
+  public devUrl: string;
+  public devServerUrl: URL;
+  public indexPath: string;
+  public iconBaseName: string;
+  public mainApp: App;
+  public iconPath: string;
+  public mainWindow: BrowserWindow | null;
 
-// main window setting
-createWindow = () => {
-  if (iconPath && existsSync(iconPath)) {
-    const iconImage = nativeImage.createFromPath(iconPath);
-    if (app.dock) {
-      app.dock.setIcon(iconImage);
-    }
-  } else {
-    iconPath = undefined;
+  constructor () {
+    this.iconBaseDir = path.join(this.basePath, "./renderer/designSource"); 
+    this.preloadScript = path.join(this.basePath, "preload.js");
+    this.targetUrl = this.protocol + "//" + this.mainHost + this.mainPath;
+    this.localTarget = this.protocol + "//" + "localhost:" + String(this.localPort);
+    this.devUrl = this.localTarget + this.mainPath;
+    this.devServerUrl = new URL(this.localTarget);
+    this.indexPath = path.join(this.basePath, "./renderer/index.html");
+    this.iconBaseName = "icon";
+    this.iconPath = "";
+    this.mainWindow = null;
+    this.mainApp = app;
   }
 
-  mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
-    icon: iconPath,
-    webPreferences: {
-      preload: preloadScript,
-      contextIsolation: true,
-      nodeIntegration: false
-    },
-    frame: false,
-  });
-
-  if (mainWindow !== null) {
-    mainWindow.maximize();
-    if (process.env.NODE_ENV === "development") {
-      setTimeout(() => {
-        if (mainWindow !== null) {
-          mainWindow!.loadURL(devUrl);
-          mainWindow!.webContents.openDevTools();
-        }
-      }, 0);
-    } else {
-      setTimeout(() => {
-        if (mainWindow !== null) {
-          mainWindow!.loadURL(targetUrl).catch((err) => {
-            if (existsSync(indexPath)) {
-              mainWindow!.loadFile(indexPath).catch((e) => console.log(e));
-            } else {
-              console.log("index.html not found:", indexPath);
-            }
-          });
-        }
-      }, 0);
+  public setIconPath = () => {
+    switch (process.platform) {
+      case "win32":
+        this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.ico`);
+        break;
+      case "darwin":
+        this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.icns`);
+        break;
+      default:
+        this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.png`);
+        break;
     }
-
-    mainWindow.on("closed", () => {
-      mainWindow = null;
-    });
   }
-}
 
-// node.js events
-app.whenReady().then(() => {
-
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        "Content-Security-Policy": [
-          "default-src 'self' https://abstractcloud-press.com;",
-          "script-src 'self' 'unsafe-inline' https://*.google-analytics.com https://*.naver.net;",
-          "style-src 'self' 'unsafe-inline';",
-          "img-src 'self' data: https:;",
-          "font-src 'self' data:;",
-          "connect-src 'self' https://*.google-analytics.com https://*.naver.net https://abstractcloud-press.com;",
-        ].join(" "),
-      },
-    });
-  });
-
-  createWindow();
-
-  ipcMain.on("window-maximize", () => {
-    if (mainWindow) {
-      if (mainWindow.isMaximized()) {
-        mainWindow.unmaximize();
-      } else {
-        mainWindow.maximize();
+  public createWindow = () => {
+    if (this.iconPath && existsSync(this.iconPath)) {
+      const iconImage = nativeImage.createFromPath(this.iconPath);
+      if (this.mainApp.dock) {
+        this.mainApp.dock.setIcon(iconImage);
       }
     }
-  });
 
-  ipcMain.on("window-close", () => {
-    if (mainWindow) {
-      mainWindow.close();
-    }
-  });
+    this.mainWindow = new BrowserWindow({
+      width: 1920,
+      height: 1080,
+      icon: this.iconPath,
+      webPreferences: {
+        preload: this.preloadScript,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+      frame: false,
+    });
 
-  ipcMain.on("window-minimize", () => {
-    if (mainWindow) {
-      mainWindow.minimize();
-    }
-  });
+    if (this.mainWindow !== null) {
+      this.mainWindow.maximize();
+      if (process.env.NODE_ENV === "development") {
+        setTimeout(() => {
+          if (this.mainWindow !== null) {
+            this.mainWindow!.loadURL(this.devUrl);
+            this.mainWindow!.webContents.openDevTools();
+          }
+        }, 0);
+      } else {
+        setTimeout(() => {
+          if (this.mainWindow !== null) {
+            this.mainWindow!.loadURL(this.targetUrl).catch((err) => {
+              if (existsSync(this.indexPath)) {
+                this.mainWindow!.loadFile(this.indexPath).catch((e) => console.log(e));
+              } else {
+                console.log("index.html not found:", this.indexPath);
+              }
+            });
+          }
+        }, 0);
+      }
 
-  ipcMain.on("show-notification", async (event, title: string, body: string, json: string, route: string) => {
-
-    if (!Notification.isSupported()) {
-      const thisJson = JSON.parse(json);
-      await Mother.requestSystem(route, thisJson, { headers: { "Content-Type": "application/json" } });
-    } else {
-
-      const icon = nativeImage.createFromPath(iconPath!);
-      const notification = new Notification({
-        title: title,
-        body: body,
-        icon: icon,
-        silent: true,
+      this.mainWindow.on("closed", () => {
+        this.mainWindow = null;
       });
+    }
+  }
 
-      notification.on("click", () => {
-        if (mainWindow) {
-          mainWindow.show();
+  public readyThenRouting = () => {
+    const instance = this;
+
+    this.createWindow();
+
+    ipcMain.on("window-maximize", () => {
+      if (instance.mainWindow) {
+        if (instance.mainWindow.isMaximized()) {
+          instance.mainWindow.unmaximize();
+        } else {
+          instance.mainWindow.maximize();
+        }
+      }
+    });
+
+    ipcMain.on("window-close", () => {
+      if (instance.mainWindow) {
+        instance.mainWindow.close();
+      }
+    });
+
+    ipcMain.on("window-minimize", () => {
+      if (instance.mainWindow) {
+        instance.mainWindow.minimize();
+      }
+    });
+
+    ipcMain.on("show-notification", async (event, title: string, body: string, json: string, route: string) => {
+
+      if (!Notification.isSupported()) {
+        const thisJson = JSON.parse(json);
+        await Mother.requestSystem(route, thisJson, { headers: { "Content-Type": "application/json" } });
+      } else {
+
+        const icon = nativeImage.createFromPath(instance.iconPath!);
+        const notification = new Notification({
+          title: title,
+          body: body,
+          icon: icon,
+          silent: true,
+        });
+
+        notification.on("click", () => {
+          if (instance.mainWindow) {
+            instance.mainWindow.show();
+          }
+        });
+
+        notification.show();
+      }
+    });
+
+  }
+
+  public setAppEvents = () => {
+    const instance = this;
+
+    this.mainApp.on("activate", function () {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        instance.createWindow();
+      }
+    });
+
+    this.mainApp.on("window-all-closed", () => {
+      if (process.platform !== "darwin") {
+        instance.mainApp.quit();
+      }
+    });
+
+    if (process.env.NODE_ENV === "development") {
+      this.mainApp.on("certificate-error", (event, webContents, url, error, certificate, callback) => {
+        const requestUrl = new URL(url);
+        if (requestUrl.hostname === instance.devServerUrl.hostname && requestUrl.port === instance.devServerUrl.port) {
+          event.preventDefault();
+          callback(true);
+        } else {
+          callback(false);
         }
       });
-
-      notification.show();
     }
-  });
-
-  app.on("activate", function () {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
-});
-
-// etc events
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
   }
-});
 
-// dev cert
-if (process.env.NODE_ENV === "development") {
-  app.on("certificate-error", (event, webContents, url, error, certificate, callback) => {
-    const requestUrl = new URL(url);
-    if (requestUrl.hostname === devServerUrl.hostname && requestUrl.port === devServerUrl.port) {
-      event.preventDefault();
-      callback(true);
-    } else {
-      callback(false);
-    }
-  });
+  public main = async () => {
+    this.mainApp.commandLine.appendSwitch("force-gpu-rasterization");
+    this.mainApp.commandLine.appendSwitch("ignore-gpu-blocklist");
+    this.setIconPath();
+
+    await this.mainApp.whenReady();
+    this.readyThenRouting();
+    this.setAppEvents();
+  }
+
 }
+
+const turtle: Turtle = new Turtle();
+turtle.main().catch((err) => console.log(err));
+
+export { Turtle };

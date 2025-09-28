@@ -131,19 +131,16 @@ class Turtle {
 
   public setAppEvents = () => {
     const instance = this;
-
     this.mainApp.on("activate", function () {
       if (BrowserWindow.getAllWindows().length === 0) {
         instance.createWindow();
       }
     });
-
     this.mainApp.on("window-all-closed", () => {
       if (process.platform !== "darwin") {
         instance.mainApp.quit();
       }
     });
-
     if (process.env.NODE_ENV === "development") {
       this.mainApp.on("certificate-error", (event, webContents, url, error, certificate, callback) => {
         const requestUrl = new URL(url);

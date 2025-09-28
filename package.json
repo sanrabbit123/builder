@@ -51,6 +51,28 @@
     "extraMetadata": {
       "main": "dist/main.js"
     },
+    "extraResources": [
+      {
+        "from": "./launcher/jre/${os}-${arch}/",
+        "to": "launcher/jre"
+      },
+      {
+        "from": "./launcher/python3/${os}-${arch}/",
+        "to": "launcher/python3"
+      },
+      {
+        "from": "./launcher/epub/",
+        "to": "launcher/epub"
+      },
+      {
+        "from": "./launcher/py/",
+        "to": "launcher/py"
+      },
+      {
+        "from": "./launcher/browser/${os}-${arch}/",
+        "to": "launcher/browser"
+      }
+    ],
     "publish": {
       "provider": "github",
       "owner": "sanrabbit123",
@@ -76,15 +98,18 @@
     "@codemirror/search": "^6.5.10",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.36.5",
+    "@daisy/ace-core": "1.3.7",
     "axios": "^1.11.0",
     "electron-log": "^5.3.3",
     "electron-updater": "^6.6.2",
+    "formdata-node": "^6.0.3",
     "got": "^14.4.9",
     "gsap": "^3.12.5",
     "htmlparser2": "^10.0.0",
     "https-proxy-agent": "^7.0.6",
     "jszip": "^3.10.1",
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "playwright-core": "^1.55.1"
   },
   "devDependencies": {
     "@types/electron": "^1.4.38",

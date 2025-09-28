@@ -1,17 +1,18 @@
-import { app, BrowserWindow, nativeImage, ipcMain, Notification } from "electron";
+import { app, BrowserWindow, nativeImage, ipcMain, Notification, MessageChannelMain, MessageEvent, MessagePortMain, IpcMainInvokeEvent, IpcRendererEvent, IpcMainEvent } from "electron";
 import { App } from "electron/main";
 import path from "path";
 import { existsSync } from "fs";
+import fsPromise from "fs/promises";
 import process from "process";
 import { Mother } from "./apps/mother.js";
-import { fileURLToPath } from "url";
+import { RouterFunction, RouterObject, RouterUnit } from "./apps/classStorage/dictionary.js";
+import { TurtleRouter } from "./apps/turtleRouter/turtleRouter.js";
 
 class Turtle {
 
   private protocol: string = "https:";
   private mainHost: string = "abstractcloud-press.com";
   private mainPath: string = "/path/home?pwadisable=true";
-  private basePath: string = path.dirname(fileURLToPath(import.meta.url));
   private localPort: number = 8000;
   
   public iconBaseDir: string;
@@ -25,19 +26,29 @@ class Turtle {
   public mainApp: App;
   public iconPath: string;
   public mainWindow: BrowserWindow | null;
+  public tempFolder: string;
+  public staticFolder: string;
+  public logFolder: string;
+  public homeFolder: string;
+  public abstractTempFolderName: string;
 
   constructor () {
-    this.iconBaseDir = path.join(this.basePath, "./renderer/designSource"); 
-    this.preloadScript = path.join(this.basePath, "preload.js");
+    this.iconBaseDir = path.join(Mother.assetPath, "./designSource"); 
+    this.preloadScript = path.join(Mother.scriptPath, "./preload.js");
     this.targetUrl = this.protocol + "//" + this.mainHost + this.mainPath;
     this.localTarget = this.protocol + "//" + "localhost:" + String(this.localPort);
     this.devUrl = this.localTarget + this.mainPath;
     this.devServerUrl = new URL(this.localTarget);
-    this.indexPath = path.join(this.basePath, "./renderer/index.html");
+    this.indexPath = path.join(Mother.assetPath, "./index.html");
     this.iconBaseName = "icon";
     this.iconPath = "";
     this.mainWindow = null;
     this.mainApp = app;
+    this.abstractTempFolderName = Mother.abstractTempFolderName;
+    this.tempFolder = Mother.tempFolder;
+    this.staticFolder = Mother.staticFolder;
+    this.logFolder = Mother.logFolder;
+    this.homeFolder = Mother.homeFolder;
   }
 
   public setIconPath = () => {
@@ -47,6 +58,9 @@ class Turtle {
         break;
       case "darwin":
         this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.icns`);
+        if (process.env.NODE_ENV === "development") {
+          this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.png`);
+        }
         break;
       default:
         this.iconPath = path.join(this.iconBaseDir, `${ this.iconBaseName }.png`);
@@ -105,56 +119,14 @@ class Turtle {
 
   public readyThenRouting = () => {
     const instance = this;
-
-    this.createWindow();
-
-    ipcMain.on("window-maximize", () => {
-      if (instance.mainWindow) {
-        if (instance.mainWindow.isMaximized()) {
-          instance.mainWindow.unmaximize();
-        } else {
-          instance.mainWindow.maximize();
-        }
-      }
-    });
-
-    ipcMain.on("window-close", () => {
-      if (instance.mainWindow) {
-        instance.mainWindow.close();
-      }
-    });
-
-    ipcMain.on("window-minimize", () => {
-      if (instance.mainWindow) {
-        instance.mainWindow.minimize();
-      }
-    });
-
-    ipcMain.on("show-notification", async (event, title: string, body: string, json: string, route: string) => {
-
-      if (!Notification.isSupported()) {
-        const thisJson = JSON.parse(json);
-        await Mother.requestSystem(route, thisJson, { headers: { "Content-Type": "application/json" } });
-      } else {
-
-        const icon = nativeImage.createFromPath(instance.iconPath!);
-        const notification = new Notification({
-          title: title,
-          body: body,
-          icon: icon,
-          silent: true,
-        });
-
-        notification.on("click", () => {
-          if (instance.mainWindow) {
-            instance.mainWindow.show();
-          }
-        });
-
-        notification.show();
-      }
-    });
-
+    const router = new TurtleRouter(instance.mainWindow!, instance.iconPath);
+    const routerObject: RouterObject = router.getAll();
+    for (let unit of routerObject.handle) {
+      ipcMain.handle(unit.link, unit.func);
+    }
+    for (let unit of routerObject.on) {
+      ipcMain.on(unit.link, unit.func);
+    }
   }
 
   public setAppEvents = () => {
@@ -186,11 +158,16 @@ class Turtle {
   }
 
   public main = async () => {
+    const tempFolder: string = this.mainApp.getPath("temp");
+    await fsPromise.mkdir(path.join(tempFolder, this.abstractTempFolderName), { recursive: true });
+    await fsPromise.mkdir(this.tempFolder, { recursive: true });
+    await fsPromise.mkdir(this.staticFolder, { recursive: true });
+    await fsPromise.mkdir(this.logFolder, { recursive: true });
     this.mainApp.commandLine.appendSwitch("force-gpu-rasterization");
     this.mainApp.commandLine.appendSwitch("ignore-gpu-blocklist");
     this.setIconPath();
-
     await this.mainApp.whenReady();
+    this.createWindow();
     this.readyThenRouting();
     this.setAppEvents();
   }

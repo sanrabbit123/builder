@@ -1,22 +1,43 @@
 import { ADDRESS } from "./infoObj.js";
-import { Dictionary, List, RequestData, Matrix, FolderMap, FileSystemType, Unique } from "./classStorage/dictionary.js";
+import { Dictionary, List, RequestData, Matrix, FolderMap, FileSystemType, Unique, UnknownFunction } from "./classStorage/dictionary.js";
 import http2 from "http2";
 import querystring from "querystring";
 import fsPromise from "fs/promises";
+import { Dirent } from "fs";
 import fs from "fs";
 import os from "os";
 import { exec, spawn } from "child_process";
 import path from "path";
 import axios, { AxiosError, AxiosResponse } from "axios";
 import https from "https";
-import { pipeline } from "stream/promises";
 import JSZip from "jszip";
 import got, { Options } from "got";
+import { TreeArray, TreeFile } from "./classStorage/treeArray.js";
+import { app, BrowserWindow } from "electron";
 
 class Mother {
 
+  public static isMac: boolean = process.platform === "darwin";
+  public static isWindows: boolean = /win32/gi.test(process.platform);
+  public static isDev: boolean = !app.isPackaged;
+  public static appPath: string = app.getAppPath();
+  public static resourcePath: string = Mother.isDev ? app.getAppPath() : process.resourcesPath;
+  public static scriptPath: string = !Mother.isDev ? app.getAppPath() : path.join(app.getAppPath(), "dist");
+  public static assetPath: string = path.join(Mother.appPath, "./renderer");
+  public static launcherPath: string = path.join(Mother.resourcePath, "./launcher");
+  public static programPath: string = path.normalize(Mother.launcherPath);
+  public static javaProgram: string = Mother.isDev ? path.join(Mother.launcherPath, "./jre/mac-arm64/bin/java") : path.join(Mother.launcherPath, "./jre/bin/java" + (!Mother.isWindows ? "" : ".exe"));
+  public static python3Program: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/bin/python3.13") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/bin/python3.13") : path.join(Mother.launcherPath, "./python3/python.exe"));
+  public static pythonModulePath: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/lib/python3.13/site-packages/bin") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/lib/python3.13/site-packages/bin") : path.join(Mother.launcherPath, "./lib/python3.13/site-packages/bin"));
+  public static pythonScriptPath: string = path.join(Mother.resourcePath, "./launcher/py");
+  public static browserPath: string = Mother.isDev ? path.join(Mother.launcherPath, "./browser/mac-arm64/Chromium.app/Contents/MacOS/Chromium") : (Mother.isMac ? path.join(Mother.launcherPath, "./browser/Chromium.app/Contents/MacOS/Chromium") : path.join(Mother.launcherPath, "./browser/chromium.exe"));
   public static requestSecretKey: string = ADDRESS.abstractinfo.key;
   public static requestSecretValue: string = "Uragen " + ADDRESS.abstractinfo.host.replace(/[\.\/\\\-]/gis, "");
+  public static abstractTempFolderName: string = "abstract_cloud_temp_folder";
+  public static tempFolder: string = path.join(app.getPath("temp"), path.normalize(Mother.abstractTempFolderName + "/temp"));
+  public static staticFolder = path.join(Mother.tempFolder, "static");
+  public static logFolder = path.join(Mother.tempFolder, "logs");
+  public static homeFolder = app.getPath("home");
 
   public static equal = (jsonString: string | List | Dictionary): Dictionary | List => {
     if (typeof jsonString === "object") {
@@ -855,120 +876,28 @@ class Mother {
     }
   }
 
-  public static childExec = (str: string): Promise<any> => {
+  public static shellExec = (command: string, args: string[] = []): Promise<string> => {
     return new Promise((resolve, reject) => {
-      exec(str, { cwd: process.cwd(), maxBuffer: 900 * 1024 * 1024 }, (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
+      const program = spawn(command, args);
+      let stdout: string = "";
+      let stderr: string = "";
+
+      program.stdout.on("data", (data) => { stdout += data.toString(); });
+      // program.stderr.on("data", (data) => { stderr += data.toString(); });
+
+      program.on("error", (err) => {
+        reject(err);
+      });
+
+      program.on("close", (code) => {
+        if (code === 0) {
+          resolve(stdout.trim());
         } else {
-          if (typeof stdout === "string") {
-            resolve(stdout.trim());
-          } else {
-            resolve(stdout);
-          }
+          const error = new Error(`Process exited with code ${ code }\n${ stderr.trim() }`);
+          reject(error);
         }
       });
     });
-  }
-
-  public static shellLink = (inputStr: string): string => {
-    let arr: string[] = inputStr.split('/');
-    let newStr: string = '';
-    for (let i of arr) {
-      if (!/ /g.test(i) && !/\&/g.test(i) && !/\(/g.test(i) && !/\)/g.test(i) && !/\|/g.test(i) && !/</g.test(i) && !/>/g.test(i) && !/;/g.test(i) && !/\*/g.test(i) && !/\#/g.test(i) && !/\%/g.test(i) && !/\[/g.test(i) && !/\]/g.test(i) && !/\{/g.test(i) && !/\}/g.test(i) && !/\@/g.test(i) && !/\!/g.test(i) && !/\=/g.test(i) && !/\+/g.test(i) && !/\~/g.test(i) && !/\?/g.test(i) && !/\$/g.test(i)) {
-        newStr += i + '/';
-      } else if (!/'/g.test(i)) {
-        newStr += "'" + i + "'" + '/';
-      } else if (!/"/g.test(i)) {
-        newStr += '"' + i + '"' + '/';
-      } else {
-        newStr += i + '/';
-      }
-    }
-    newStr = newStr.slice(0, -1);
-    return newStr;
-  }
-
-  public static shellExec = async (command: string | List, args: List | null | undefined = null): Promise<any> => {
-    try {
-      const func_shellExec = (command: string | List, args: List | null | undefined = null): Promise<any> => {
-        if (typeof command === "string") {
-          if (!Array.isArray(args)) {
-            return new Promise((resolve, reject) => {
-              exec(command, { cwd: process.cwd(), maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
-                if (error) {
-                  reject(error);
-                } else {
-                  if (typeof stdout === "string") {
-                    resolve(stdout.trim());
-                  } else {
-                    resolve(stdout);
-                  }
-                }
-              });
-            });
-          } else {
-            if (args.every((s) => typeof s === "string")) {
-              return new Promise((resolve, reject) => {
-                const name = command;
-                const program = spawn(name, args);
-                let out: string;
-                out = "";
-                program.stdout.on("data", (data) => { out += String(data); });
-                program.stderr.on("data", (data) => { reject(String(data)); });
-                program.on("close", (code) => { resolve(out.trim()); });
-              });
-            } else {
-              throw new Error("invaild input");
-            }
-          }
-        } else if (Array.isArray(command)) {
-          if (command.length > 0) {
-            if (command.every((s) => typeof s === "string")) {
-              return new Promise((resolve, reject) => {
-                const name = command[ 0 ];
-                const program = spawn(name, command.slice(1));
-                let out: string;
-                out = "";
-                program.stdout.on("data", (data) => { out += String(data); });
-                program.stderr.on("data", (data) => { reject(String(data)); });
-                program.on("close", (code) => { resolve(out.trim()); });
-              });
-            } else if (command.every((s) => { return Array.isArray(s); })) {
-              if (command.every((arr) => { return arr.length > 0 })) {
-                return Promise.all(command.map((arr) => {
-                  arr = arr.flat();
-                  if (!arr.every((s) => typeof s === "string")) {
-                    throw new Error("invaild input");
-                  }
-                  return new Promise((resolve, reject) => {
-                    const name = arr[ 0 ];
-                    const program = spawn(name, arr.slice(1));
-                    let out: string;
-                    out = "";
-                    program.stdout.on("data", (data) => { out += String(data); });
-                    program.stderr.on("data", (data) => { reject(String(data)); });
-                    program.on("close", (code) => { resolve(out.trim()); });
-                  });
-                }));
-              } else {
-                throw new Error("invaild input");
-              }
-            } else {
-              throw new Error("invaild input");
-            }
-          } else {
-            throw new Error("invaild input");
-          }
-        } else {
-          throw new Error("invaild input");
-        }
-      }
-      return (await func_shellExec(command, args));
-    } catch (e) {
-      console.log(e);
-      return null;
-    }
   }
 
   public static hexEncode = (str: string | ((...args: any[]) => Promise<any>)): string => {
@@ -1000,49 +929,71 @@ class Mother {
     return back;
   }
 
-  public static hexaJson = async (input: any, middleMode: boolean = false) => {
+  public static hexaJson = (input: Dictionary | string | UnknownFunction, middleMode: boolean = false): string | Dictionary | UnknownFunction => {
     const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
     const tokenStart: string = "__hexaFunctionStart__<<<";
     const tokenEnd: string = ">>>__hexaFunctionEnd__";
-    const hexaFunction = async (input: any) => {
+    const hexEncode = (str: string | UnknownFunction): string => {
+      let hex: string;
+      let result: string = "";
+      let inputString: string;
+      inputString = "";
+      if (typeof str === "function") {
+        inputString = str.toString();
+      } else if (typeof str === "string") {
+        inputString = str;
+      } else {
+        throw new Error("invalid input");
+      }
+      for (let i = 0; i < inputString.length; i++) {
+        hex = inputString.charCodeAt(i).toString(16);
+        result += String("000" + hex).slice(-4);
+      }
+      return result;
+    }
+    const hexDecode = (hash: string): string => {
+      let hexes: RegExpMatchArray | string[] = (hash.match(/.{1,4}/g) || []);
+      let back: string = "";
+      for (let j = 0; j < hexes.length; j++) {
+        back += String.fromCharCode(parseInt(hexes[ j ], 16));
+      }
+      return back;
+    }
+    const hexaFunction = (input: Dictionary | string | UnknownFunction): string | UnknownFunction => {
       try {
-        const toHex = (str: string): Promise<any> => {
-          return new Promise((resolve, reject) => {
-            resolve(Mother.hexEncode(str));
-          });
+        const toHex = (str: string): string => {
+          return hexEncode(str);
         }
-        const toFunction = (hash: string): Promise<any> => {
-          return new Promise((resolve, reject) => {
-            resolve(Mother.hexDecode(hash));
-          });
+        const toFunction = (hash: string): string => {
+          return hexDecode(hash);
         }
         let functionString: string, functionString_copied: string;
         let argString: string;
         let argArr: any[];
-        let decodeFunction: any;
+        let decodeFunction: unknown;
         let asyncBoo: boolean;
 
         if (typeof input === "function") {
 
-          return tokenStart + (await toHex(input.toString())) + tokenEnd;
+          return (tokenStart + toHex(input.toString()) + tokenEnd);
 
         } else if (typeof input === "string") {
 
           if ((new RegExp('^' + tokenStart)).test(input) && (new RegExp(tokenEnd + '$')).test(input)) {
             input = input.replace(new RegExp('^' + tokenStart), '').replace(new RegExp(tokenEnd + '$'), '');
-            functionString = await toFunction(input);
+            functionString = toFunction(input);
             functionString_copied = String(functionString).trim();
             argString = '';
             asyncBoo = /^async/.test(functionString_copied);
             if (/^(async function|function)/i.test(functionString_copied)) {
               functionString_copied.replace(/^(async function|function) [^\(]*\(([^\)]*)\)[ ]*\{/, (match, p1, p2) => {
                 argString = p2.trim();
-                return '';
+                return match;
               });
             } else {
               functionString_copied.replace(/^(async \(|\()([^\)]*)\)[ ]*\=\>[ ]*\{/, (match, p1, p2) => {
                 argString = p2.trim();
-                return '';
+                return match;
               });
             }
             argString = argString.replace(/[ ]*\=[ ]*[\{\[][^\=]*[\}\]]/gi, '');
@@ -1064,7 +1015,7 @@ class Mother {
                 decodeFunction = new Function(...argArr, functionString.trim().replace(/^(function [^\(]*\([^\)]*\)[ ]*\{|\([^\)]*\)[ ]*\=\>[ ]*\{)/, '').trim());
               }
             }
-            return decodeFunction;
+            return decodeFunction as UnknownFunction;
           } else {
             return input;
           }
@@ -1074,22 +1025,23 @@ class Mother {
         }
       } catch (e) {
         console.log(e);
+        throw e;
       }
     }
     try {
       if (typeof input === "function") {
-        return await hexaFunction(input);
+        return hexaFunction(input) as string;
       } else if (typeof input === "object") {
         if (input === null) {
-          return null;
+          throw new Error("invalid input");
         } else {
-          const toJson = async function (obj: Dictionary) {
+          const toJson = (obj: Dictionary): Dictionary => {
             try {
               for (let i in obj) {
                 if (typeof obj[ i ] === "function") {
-                  obj[ i ] = await hexaFunction(obj[ i ]);
+                  obj[ i ] = hexaFunction(obj[ i ]);
                 } else if (typeof obj[ i ] === "object" && obj[ i ] !== null) {
-                  obj[ i ] = await toJson(obj[ i ]);
+                  obj[ i ] = toJson(obj[ i ]);
                 }
               }
               return obj;
@@ -1098,22 +1050,79 @@ class Mother {
             }
           }
           if (!middleMode) {
-            return JSON.stringify(await toJson(input));
+            return JSON.stringify(toJson(input)) as string;
           } else {
-            return await toJson(input);
+            return toJson(input);
           }
         }
       } else if (typeof input === "string") {
         if ((new RegExp('^' + tokenStart)).test(input)) {
-          return await hexaFunction(input);
+          return hexaFunction(input) as UnknownFunction;
         } else {
-          const toObj = async function (obj: Dictionary) {
+          const equal = (jsonString: string | Dictionary): Dictionary => {
+            if (typeof jsonString === "object") {
+              jsonString = JSON.stringify(jsonString);
+            }
+            if (typeof jsonString !== "string") {
+              jsonString = String(jsonString);
+            }
+            try {
+              const filtered: string = jsonString.trim().replace(/(\"[0-9]+\-[0-9]+\-[0-9]+T[0-9]+\:[0-9]+\:[^Z]+Z\")/g, (match: any, p1: string) => {
+                return "new Date(" + p1 + ")";
+              });
+              const tempFunc = new Function("const obj = " + filtered + "; return obj;") as () => Dictionary;
+              const json: Dictionary | List = tempFunc();
+              let temp: string, boo: boolean;
+              if (typeof json === "object") {
+                if (Array.isArray(json)) {
+                  for (let item of json) {
+                    if (typeof item === "string") {
+                      if (/^[\{\[]/.test(item.trim()) && /[\}\]]$/.test(item.trim())) {
+                        try {
+                          temp = JSON.parse(item);
+                          boo = true;
+                        } catch (e) {
+                          boo = false;
+                        }
+                        if (boo) {
+                          item = equal(item);
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  for (let i in json) {
+                    if (typeof json[ i ] === "string") {
+                      if (/^[\{\[]/.test(json[ i ].trim()) && /[\}\]]$/.test(json[ i ].trim())) {
+                        try {
+                          temp = JSON.parse(json[ i ]);
+                          boo = true;
+                        } catch (e) {
+                          boo = false;
+                        }
+                        if (boo) {
+                          json[ i ] = equal(json[ i ]);
+                        }
+                      }
+                    }
+                  }
+                }
+                return json;
+              } else {
+                throw Error("invalid input");
+              }
+            } catch (e) {
+              console.log(e);
+              throw Error("invalid input");
+            }
+          }
+          const toObj = (obj: Dictionary): Dictionary => {
             try {
               for (let i in obj) {
                 if (typeof obj[ i ] === "string" && (new RegExp('^' + tokenStart)).test(obj[ i ])) {
-                  obj[ i ] = await hexaFunction(obj[ i ]);
+                  obj[ i ] = hexaFunction(obj[ i ]);
                 } else if (typeof obj[ i ] === "object" && obj[ i ] !== null) {
-                  obj[ i ] = await toObj(obj[ i ]);
+                  obj[ i ] = toObj(obj[ i ]);
                 }
               }
               return obj;
@@ -1121,14 +1130,14 @@ class Mother {
               return obj;
             }
           }
-          return await toObj(Mother.equal(input));
+          return toObj(equal(input));
         }
       } else {
-        return null;
+        throw new Error("invalid input");
       }
     } catch (e) {
       console.log(e);
-      return null;
+      throw e;
     }
   }
 
@@ -1246,9 +1255,9 @@ class Mother {
     }
 
     try {
-      await fsPromise.cp(sourcePath, finalDestinationPath, { recursive: true, force: true });
+      await fsPromise.cp(path.normalize(sourcePath), path.normalize(finalDestinationPath), { recursive: true, force: true });
       try {
-        await fsPromise.rm(sourcePath, { recursive: true, force: true });
+        await fsPromise.rm(path.normalize(sourcePath), { recursive: true, force: true });
       } catch { }
       return finalDestinationPath;
     } catch (moveError) {
@@ -1261,7 +1270,7 @@ class Mother {
     if (detail === undefined || detail === null) {
       detail = false;
     }
-    const zeroAddition = (num: number): string => { return (num < 10) ? `0${String(num)}` : String(num); }
+    const zeroAddition = (num: number): string => { return (num < 10) ? `0${ String(num) }` : String(num); }
     const emptyDateValue: number = (new Date(1900, 0, 1)).valueOf();
     const futureDateValue: number = (new Date(3000, 0, 1)).valueOf();
     if (date.valueOf() <= emptyDateValue) {
@@ -1270,12 +1279,12 @@ class Mother {
       return "예정";
     } else {
       if (!detail) {
-        return `${String(date.getFullYear())}-${zeroAddition(date.getMonth() + 1)}-${zeroAddition(date.getDate())}`;
+        return `${ String(date.getFullYear()) }-${ zeroAddition(date.getMonth() + 1) }-${ zeroAddition(date.getDate()) }`;
       } else {
         if (dayOption) {
-          return `${String(date.getFullYear())}-${zeroAddition(date.getMonth() + 1)}-${zeroAddition(date.getDate())} ${zeroAddition(date.getHours())}:${zeroAddition(date.getMinutes())}:${zeroAddition(date.getSeconds())} ${dayday[date.getDay()]}요일`;
+          return `${ String(date.getFullYear()) }-${ zeroAddition(date.getMonth() + 1) }-${ zeroAddition(date.getDate()) } ${ zeroAddition(date.getHours()) }:${ zeroAddition(date.getMinutes()) }:${ zeroAddition(date.getSeconds()) } ${ dayday[ date.getDay() ] }요일`;
         } else {
-          return `${String(date.getFullYear())}-${zeroAddition(date.getMonth() + 1)}-${zeroAddition(date.getDate())} ${zeroAddition(date.getHours())}:${zeroAddition(date.getMinutes())}:${zeroAddition(date.getSeconds())}`;
+          return `${ String(date.getFullYear()) }-${ zeroAddition(date.getMonth() + 1) }-${ zeroAddition(date.getDate()) } ${ zeroAddition(date.getHours()) }:${ zeroAddition(date.getMinutes()) }:${ zeroAddition(date.getSeconds()) }`;
         }
       }
     }
@@ -1292,7 +1301,7 @@ class Mother {
       // Pick a remaining element
       randomIndex = Math.floor(Math.random() * currentIndex);
       currentIndex--;
-      [ targetArray[currentIndex], targetArray[randomIndex] ] = [ targetArray[randomIndex], targetArray[currentIndex] ];
+      [ targetArray[ currentIndex ], targetArray[ randomIndex ] ] = [ targetArray[ randomIndex ], targetArray[ currentIndex ] ];
     }
 
     return targetArray;
@@ -1307,9 +1316,9 @@ class Mother {
       return "예정";
     } else {
       if (shortYear) {
-        return `${String(date.getFullYear()).slice(2)}년 ${String(date.getMonth() + 1)}월 ${String(date.getDate())}일`;
+        return `${ String(date.getFullYear()).slice(2) }년 ${ String(date.getMonth() + 1) }월 ${ String(date.getDate()) }일`;
       } else {
-        return `${String(date.getFullYear())}년 ${String(date.getMonth() + 1)}월 ${String(date.getDate())}일`;
+        return `${ String(date.getFullYear()) }년 ${ String(date.getMonth() + 1) }월 ${ String(date.getDate()) }일`;
       }
     }
   }
@@ -1384,7 +1393,7 @@ class Mother {
   }
 
   public static zeroAddition = (num: number): string => {
-    return ((num < 10) ? `0${String(num)}` : String(num));
+    return ((num < 10) ? `0${ String(num) }` : String(num));
   }
 
   public static equalJson = (jsonString: string | List | Dictionary): Dictionary | List => {
@@ -1403,444 +1412,96 @@ class Mother {
     return Mother.equal(JSON.stringify(obj));
   }
 
-  public static fileSystem = async (sw: FileSystemType, arr: List): Promise<any> => {
+  public static fileSystem = async (sw: FileSystemType, arr: Array<string | Buffer>): Promise<any> => {
     try {
-      const func_fileSystem = (sw: FileSystemType, arr: List): Promise<any> => {
-        if (!Array.isArray(arr)) {
-          throw new Error("second argument must be array");
-        }
-        switch (sw) {
-          case "read":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readFile(arr[0], (err, data) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(data);
-                }
-              });
-            });
-          case "readBuffer":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readFile(arr[0], null, (err, data) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(data);
-                }
-              });
-            });
-          case "readString":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readFile(arr[0], "utf8", (err, data) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(data);
-                }
-              });
-            });
-          case "readFirstString":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readdir(arr[0], function (err, filelist) {
-                if (err) { reject(err); }
-                else {
-                  const thisFolderList: List = Array.from(filelist).filter((str) => { return str !== ".DS_Store" && str !== "._.DS_Store"; });
-                  if (thisFolderList.length === 0) {
-                    resolve("");
-                  } else {
-                    fs.readFile(arr[0].replace(/\/$/, '') + "/" + thisFolderList[0], "utf8", (err, data) => {
-                      if (err) { reject(err); }
-                      else { resolve(String(data)); }
-                    });
-                  }
-                }
-              });
-            });
-          case "readFirstBuffer":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readdir(arr[0], function (err, filelist) {
-                if (err) { reject(err); }
-                else {
-                  const thisFolderList: List = Array.from(filelist).filter((str) => { return str !== ".DS_Store" && str !== "._.DS_Store"; });
-                  if (thisFolderList.length === 0) {
-                    resolve("");
-                  } else {
-                    fs.readFile(arr[0].replace(/\/$/, '') + "/" + thisFolderList[0], (err, data) => {
-                      if (err) {
-                        reject(err);
-                      } else {
-                        resolve(data);
-                      }
-                    });
-                  }
-                }
-              });
-            });
-          case "readBinary":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readFile(arr[0], "binary", (err, data) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(data);
-                }
-              });
-            });
-          case "readJson":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readFile(arr[0], "utf8", (err, data) => {
-                if (err) { reject(err); }
-                else {
-                  try {
-                    resolve(JSON.parse(data));
-                  } catch (e) {
-                    reject(e);
-                  }
-                }
-              });
-            });
-          case "readDir":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readdir(arr[0], function (err, filelist) {
-                if (err) { reject(err); }
-                else { resolve(filelist); }
-              });
-            });
-          case "readFolder":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.readdir(arr[0], (err, filelist: string[]) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(Array.from(filelist).filter((str: string) => {
-                    return (str !== ".DS_Store" && str !== "._.DS_Store");
-                  }));
-                }
-              });
-            });
-          case "readFolderContents":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) {
-                reject("second argument must be length 1 array");
-              }
-              fs.readdir(arr[0], function (err, filelist) {
-                if (err) { reject(err); }
-                const thisFolderFileNameList: string[] = Array.from(filelist).filter((str) => { return str !== ".DS_Store" && str !== "._.DS_Store"; });
-                const readString = async (filePath: string): Promise<Buffer | null> => {
-                  try {
-                    return (await fsPromise.readFile(filePath));
-                  } catch (e) {
-                    console.log(e);
-                    return null;
-                  }
-                }
-                const readAll = async (fileList: string[]): Promise<List | null> => {
-                  try {
-                    let result: List;
-                    let fileContents: Buffer | null;
-                    result = [];
-                    for (let fileName of fileList) {
-                      fileContents = await readString(arr[0].replace(/\/$/, '') + "/" + fileName);
-                      if (fileContents === null) {
-                        throw new Error("file read fail");
-                      } else {
-                        result.push(fileContents as Buffer);
-                      }
-                    }
-                    return result;
-                  } catch (e) {
-                    console.log(e);
-                    return null;
-                  }
-                }
-                readAll(thisFolderFileNameList).then((result: Buffer[] | null) => {
-                  if (result === null) {
-                    reject("folder file read fail");
-                  } else {
-                    resolve(result);
-                  }
-                }).catch((err) => { reject(err); });
-              });
-            });
-          case "readFolderByCondition":
-            return new Promise((resolve, reject) => {
-              if (arr.length < 1) {
-                reject("second argument must be length 1, 2 array");
-              }
-              const targetMotherPath: string = arr[0] as string;
-              const targetPattern: string =
-                (typeof arr[1] === "string") ? arr[1] : "";
-              const pathToResult = async (
-                targetMotherPath: string,
-                targetPattern: string
-              ): Promise<FolderMap[]> => {
-                try {
-                  const folderList: string[] = (await fsPromise.readdir(targetMotherPath)).filter((s: string) => {
-                    return (s !== ".DS_Store" && s !== "._.DS_Store");
-                  });
-                  let tempList: List;
-                  let result: FolderMap[];
-                  tempList = folderList.map((name: string) => {
-                    return {
-                      name,
-                      path: targetMotherPath + "/" + name,
-                    }
-                  });
-                  result = [];
-                  for (let o of tempList) {
-                    try {
-                      o.contents = String(await fsPromise.readFile(o.path, { encoding: "utf8" }));
-                      result.push(JSON.parse(JSON.stringify(o)));
-                    } catch {}
-                  }
-                  if (targetPattern !== "") {
-                    return result.filter((o: FolderMap) => {
-                      return (new RegExp(targetPattern, "g")).test(o.contents);
-                    })
-                  } else {
-                    return result;
-                  }
-                } catch (e) {
-                  console.log(e);
-                  return [];
-                }
-              }
-              pathToResult(targetMotherPath, targetPattern).then((r: FolderMap[]) => {
-                resolve(r);
-              }).catch((e) => reject(e as Error));
-            });
-          case "readHead":
-            return new Promise((resolve, reject) => {
-              if (arr.length === 0) { reject("second argument must be length 1~2 array"); }
-              const du = spawn("head", [ "-n", String(typeof arr[1] === "number" ? arr[1] : 100), arr[0] ]);
-              let out: string;
-              out = "";
-              du.stdout.on("data", (data) => { out += String(data); });
-              du.stderr.on("data", (data) => { reject(String(data)); });
-              du.on("close", (code) => { resolve(String(out)); });
-            });
-          case "readStream":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              const stream = fs.createReadStream(arr[0])
-              resolve(stream);
-            });
-          case "write":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) { reject("second argument must be length 2 array"); }
-              fs.writeFile(arr[0], arr[1], "utf8", (err) => {
-                if (err) { reject(err); }
-                else { resolve("success"); }
-              });
-            });
-          case "writeString":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) { reject("second argument must be length 2 array"); }
-              fs.writeFile(arr[0], arr[1], "utf8", (err) => {
-                if (err) { reject(err); }
-                else { resolve("success"); }
-              });
-            });
-          case "writeBinary":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) { reject("second argument must be length 2 array"); }
-              fs.writeFile(arr[0], arr[1], "binary", (err) => {
-                if (err) { reject(err); }
-                else { resolve("success"); }
-              });
-            });
-          case "writeJson":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) { reject("second argument must be length 2 array"); }
-              if (typeof arr[0] !== "string" || typeof arr[1] !== "object") { reject("second argument must be object, array"); }
-              fs.writeFile(arr[0], JSON.stringify(arr[1], null, 2), "utf8", (err) => {
-                if (err) { reject(err); }
-                else { resolve("success"); }
-              });
-            });
-          case "writeModule":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) {
-                reject("second argument must be length 2 array");
-              }
-              if (typeof arr[0] !== "string" || typeof arr[1] !== "object") {
-                reject("second argument must be object, array");
-              }
-              delete arr[1]._id;
-              const tempToken: string = "____tempToken____";
-              const tap: string = "  ";
-              const jsonValueList: List = JSON.stringify(arr[1], null, tap.length).split("\n");
-              let writeString: string;
-              writeString = "";
-              writeString += "const returnJson = () => {\n";
-              writeString += tap + "return {\n";
-              writeString += jsonValueList.map((s: string) => {
-                return tap + s.replace(/\\"/gi, tempToken).replace(/"/gi, '`').replace(/"/gi, '`').replace(new RegExp(tempToken, "gi"), '"').replace(/`([a-zA-Z0-9_\$]+)`:/gi, (match: any, p1: string) => { return p1 + ":" }).replace(/`([0-9]+\-[0-9]+\-[0-9]+T[0-9]+\:[0-9]+\:[^Z]+Z)`/g, (match: any, p1: string) => { return `new Date("` + p1 + `")`; });
-              }).slice(1).join("\n");
-              writeString += "\n}";
-              writeString += "\n\n";
-              writeString += "export { returnJson };"
-              fs.writeFile(arr[0], writeString, "utf8", (err) => {
-                if (err) { reject(err); }
-                else { resolve("success"); }
-              });
-            });
-          case "size":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              const du = spawn("du", [ "-sk", arr[0] ]);
-              let out: string;
-              out = "";
-              du.stdout.on("data", (data) => { out += String(data); });
-              du.stderr.on("data", (data) => { reject(String(data)); });
-              du.on("close", (code) => { resolve(Number((String(out).split("\t"))[0]) * 1000); });
-            });
-          case "mkdir":
-            const promiseMkdir = async (destDir: string) => {
-              try {
-                await fsPromise.mkdir(destDir, { recursive: true });
-                return destDir;
-              } catch (e) {
-                console.log(e);
-                throw new Error((e as Error).message);
-              }
-            }
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) {
-                reject("second argument must be length 1 array");
-              } else {
-                promiseMkdir(arr[0]).then((d) => {
-                  resolve(d);
-                }).catch((e) => {
-                  reject(e);
-                })
-              }
-            });
-          case "exist":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.access(arr[0], fs.constants.F_OK, function (err) {
-                try {
-                  if (!err) {
-                    resolve(true);
-                  } else {
-                    resolve(false);
-                  }
-                } catch (e) {
-                  resolve(false);
-                }
-              });
-            });
-          case "isDir":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              fs.stat(arr[0], (err, stats) => {
-                if (err) {
-                  reject(err);
-                } else {
-                  resolve(stats.isDirectory());
-                }
-              });
-            });
-          case "remove":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              const remove = spawn("rm", [ "-rf", arr[0] ]);
-              let out: string;
-              out = "";
-              remove.stdout.on("data", (data) => { out += String(data); });
-              remove.stderr.on("data", (data) => { reject(String(data)); });
-              remove.on("close", (code) => { resolve(arr[0]); });
-            });
-          case "open":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 1) { reject("second argument must be length 1 array"); }
-              const open = spawn("open", [ arr[0] ]);
-              let out: string;
-              out = "";
-              open.stdout.on("data", (data) => { out += String(data); });
-              open.stderr.on("data", (data) => { reject(String(data)); });
-              open.on("close", (code) => { resolve(arr[0]); });
-            });
-          case "copyFile":
-            const copyFilePromise = async (sourcePath: string, destinationPath: string) => {
-              try {
-                const destDir = path.dirname(destinationPath);
-                await fsPromise.mkdir(destDir, { recursive: true });
-                await fsPromise.copyFile(sourcePath, destinationPath);
-                return destinationPath;
-              } catch (e) {
-                console.log(e);
-                throw new Error((e as Error).message);
-              }
-            }
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) {
-                reject("second argument must be length 2 array");
-              } else {
-                copyFilePromise(arr[0], arr[1]).then((s) => {
-                  resolve(s);
-                }).catch((e) => {
-                  reject(e);
-                })
-              }
-            });
-          case "copyFolder":
-            const copyFolderPromise = async (sourcePath: string, destinationPath: string) => {
-              try {
-                await fsPromise.cp(sourcePath, destinationPath, {
-                  recursive: true,
-                  force: true
-                });
-                return destinationPath;
-              } catch (e) {
-                console.log(e);
-                throw new Error((e as Error).message);
-              }
-            }
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) {
-                reject("second argument must be length 2 array");
-              } else {
-                copyFolderPromise(arr[0], arr[1]).then((s) => {
-                  resolve(s);
-                }).catch((e) => {
-                  reject(e);
-                })
-              }
-            });
-          case "move":
-            return new Promise((resolve, reject) => {
-              if (arr.length !== 2) {
-                reject("second argument must be length 2 array");
-              } else {
-                Mother.moveFileFolder(arr[0], arr[1]).then((s) => {
-                  resolve(s);
-                }).catch((e) => {
-                  reject(e);
-                })
-              }
-            });
-          default:
-            return new Promise((resolve, reject) => {
-              resolve(null);
-            });
-        }
+      if (arr.length === 0) {
+        throw new Error("invalid zero arguments");
       }
-      return (await func_fileSystem(sw, arr));
+      if (typeof arr[0] !== "string") {
+        throw new Error("invalid arguments : " + JSON.stringify(arr));
+      }
+      if (sw === "readString") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        return (await fsPromise.readFile(path.normalize(arr[ 0 ]), "utf8"));
+      } else if (sw === "readJson") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        return Mother.equal(await fsPromise.readFile(path.normalize(arr[ 0 ]), "utf8"));
+      } else if (sw === "readBuffer") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        return await fsPromise.readFile(path.normalize(arr[ 0 ]));
+      } else if (sw === "readFolder") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        const fileList: string[] = (await fsPromise.readdir(path.normalize(arr[ 0 ])));
+        return fileList.filter((str: string) => (str !== ".DS_Store" && str !== "._.DS_Store"));
+      } else if (sw === "writeString") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        await fsPromise.writeFile(path.normalize(arr[ 0 ]), arr[ 1 ], "utf8");
+        return "success";
+      } else if (sw === "writeBuffer") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        await fsPromise.writeFile(path.normalize(arr[ 0 ]), arr[ 1 ]);
+        return "success";
+      } else if (sw === "writeBinary") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        await fsPromise.writeFile(path.normalize(arr[ 0 ]), arr[ 1 ], "binary");
+        return "success";
+      } else if (sw === "mkdir") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        await fsPromise.mkdir(path.normalize(arr[ 0 ]), { recursive: true });
+        return "success";
+      } else if (sw === "exist") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        try {
+          await fsPromise.access(path.normalize(arr[ 0 ]), fsPromise.constants.F_OK);
+          return true;
+        } catch {
+          return false;
+        }
+      } else if (sw === "isDir") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        const s = await fsPromise.stat(path.normalize(arr[ 0 ]));
+        return s.isDirectory();
+      } else if (sw === "remove") {
+        if (arr.length !== 1) throw new Error("arguments error : " + sw);
+        try {
+          await fsPromise.rm(path.normalize(arr[ 0 ]), {
+            force: true,
+            recursive: true,
+            maxRetries: 3
+          });
+        } catch {}
+        return "";
+      } else if (sw === "copyFile") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        if (typeof arr[ 1 ] !== "string") throw new Error("arguments error 2 : " + sw);
+        const sourcePath: string = path.normalize(arr[ 0 ]);
+        const destinationPath: string = path.normalize(arr[ 1 ]);
+        const destDir: string = path.dirname(destinationPath);
+        await fsPromise.mkdir(destDir, { recursive: true });
+        await fsPromise.copyFile(sourcePath, destinationPath);
+        return destinationPath;
+      } else if (sw === "copyFolder") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        if (typeof arr[ 1 ] !== "string") throw new Error("arguments error 2 : " + sw);
+        const sourcePath: string = path.normalize(arr[ 0 ]);
+        const destinationPath: string = path.normalize(arr[ 1 ]);
+        await fsPromise.cp(sourcePath, destinationPath, {
+          recursive: true,
+          force: true
+        });
+        return destinationPath;
+      } else if (sw === "move") {
+        if (arr.length !== 2) throw new Error("arguments error : " + sw);
+        if (typeof arr[ 1 ] !== "string") throw new Error("arguments error 2 : " + sw);
+        const sourcePath: string = path.normalize(arr[ 0 ]);
+        const destinationPath: string = path.normalize(arr[ 1 ]);
+        return await Mother.moveFileFolder(sourcePath, destinationPath);
+      } else {
+        throw new Error("invalid mode");
+      }
     } catch (e) {
       console.log(e);
-      return null;
+      throw e;
     }
   }
 
@@ -1853,7 +1514,7 @@ class Mother {
         let client: any;
         let protocol: string;
         let req: any;
-      
+
         if (/^https:\/\//.test(from)) {
           protocol = "https";
           target = from.slice(8);
@@ -1864,19 +1525,19 @@ class Mother {
           protocol = "https";
           target = from;
         }
-      
+
         tempArr = target.split('/');
         targetHost = tempArr.shift();
         targetPath = '/' + tempArr.join('/');
-      
+
         option = {
           ":path": targetPath,
           method: "GET",
           ...headers,
         };
-      
+
         client = http2.connect(protocol + "://" + targetHost);
-      
+
         return new Promise((resolve, reject) => {
           option[ Mother.requestSecretKey ] = Mother.requestSecretValue;
           req = client.request(option);
@@ -1916,10 +1577,10 @@ class Mother {
       } catch {
         const finalConfig: Dictionary = { ...config };
         const agent = new https.Agent({ family: 4 });
-        finalConfig["httpsAgent"] = agent;
-        if (finalConfig["headers"] === undefined) {
-          finalConfig["headers"] = {};
-          finalConfig["headers"]["Content-Type"] = "application/json";
+        finalConfig[ "httpsAgent" ] = agent;
+        if (finalConfig[ "headers" ] === undefined) {
+          finalConfig[ "headers" ] = {};
+          finalConfig[ "headers" ][ "Content-Type" ] = "application/json";
         }
         return await Mother.axiosRequest(url, data, finalConfig);
       }
@@ -1934,6 +1595,145 @@ class Mother {
     const finalConfig: Dictionary = { ...config };
     finalConfig.formData = true;
     return await Mother.axiosRequest(url, data, finalConfig);
+  }
+
+  public static objectSet = (targetArray: Array<Dictionary>, sortTarget: string): Array<Dictionary> => {
+    if (targetArray.some((o: Dictionary) => o[ sortTarget ] === undefined)) {
+      throw new Error("invalid input");
+    }
+    if (!targetArray.every((o: Dictionary) => typeof o[ sortTarget ] === "string")) {
+      throw new Error("invalid input 2");
+    }
+    let standardArray: string[];
+    let resultArray: Array<Dictionary>;
+    standardArray = [];
+    resultArray = [];
+    for (let obj of targetArray) {
+      if (!standardArray.includes(obj[ sortTarget ])) {
+        resultArray.push(Mother.equal(JSON.stringify(obj)));
+      }
+      standardArray.push(obj[ sortTarget ] as string);
+    }
+    return resultArray;
+  }
+
+  public static ajaxJson = async (data: RequestData = {}, url: string, config: Dictionary = {}): Promise<Dictionary | List> => {
+    const finalConfig: Dictionary = { ...config };
+    if (finalConfig[ "headers" ] === undefined) {
+      finalConfig[ "headers" ] = {};
+    }
+    if (typeof finalConfig[ "headers" ][ "Content-Type" ] !== "string") {
+      finalConfig[ "headers" ][ "Content-Type" ] = "application/json";
+    }
+    finalConfig[ "headers" ][ Mother.requestSecretKey ] = Mother.requestSecretValue;
+    try {
+      let responseBody: Dictionary | List;
+      let method: string;
+      let options: Dictionary;
+      let gotOptions: Dictionary;
+      let contentType: string;
+
+      method = (Object.keys(data).length > 0 ? "post" : "get");
+      if (finalConfig.method) {
+        method = finalConfig.method.toLowerCase().trim();
+      }
+      method = method.toUpperCase();
+
+      options = {
+        http2: true,
+        method: method,
+        retry: { limit: 2 },
+        headers: {
+          ...finalConfig[ "headers" ],
+        } as Dictionary,
+        responseType: "json" as const,
+        resolveBodyOnly: true as const,
+        parseJson: (jsonText: string) => Mother.equal(jsonText),
+        prefixUrl: "",
+        encoding: "utf8",
+        isStream: false,
+      };
+      if (typeof finalConfig.http1 === "boolean" && finalConfig.http1 === true) {
+        options.http2 = false;
+        delete config.http1;
+        delete finalConfig.http1;
+      }
+
+      contentType = (options.headers?.[ "Content-Type" ] as string) || (options.headers?.[ "content-type" ] as string) || "";
+      gotOptions = { ...options };
+
+      if (method === "GET" || /get/gi.test(method)) {
+        gotOptions.searchParams = new URLSearchParams(data);
+      } else {
+        if (config.formData === true || config.form === true || config.formData === 1 || config.form === 1) {
+          const { FormData } = await import("formdata-node");
+          const rawData: Dictionary = data as Dictionary;
+          const form = new FormData();
+          for (const key in rawData) {
+            form.set(key, rawData[ key ]);
+          }
+          gotOptions.body = form;
+        } else if (/application\/x\-www\-form\-urlencoded/gis.test(contentType.toLowerCase())) {
+          gotOptions.form = data as Record<string, any>;
+        } else {
+          gotOptions.json = data;
+        }
+      }
+
+      try {
+        responseBody = await got(url, gotOptions);
+      } catch {
+        const httpsAgent = new https.Agent({
+          family: 4,
+          keepAlive: true
+        });
+        const customGot = got.extend({
+          agent: { https: httpsAgent }
+        });
+        responseBody = await customGot(url, gotOptions);
+      }
+
+      return responseBody as Dictionary | List;
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  }
+
+  public static requestJson = async (url: string, data: RequestData = {}, config: Dictionary = {}): Promise<Dictionary> => {
+    const finalConfig: Dictionary = { ...config };
+    if (finalConfig[ "headers" ] === undefined) {
+      finalConfig[ "headers" ] = {};
+    }
+    if (typeof finalConfig[ "headers" ][ "Content-Type" ] !== "string") {
+      finalConfig[ "headers" ][ "Content-Type" ] = "application/json";
+    }
+    finalConfig[ "headers" ][ Mother.requestSecretKey ] = Mother.requestSecretValue;
+    try {
+      const res: any = await Mother.axiosRequest(url, data, finalConfig);
+      if (typeof res === "string" || Array.isArray(res)) {
+        const result: Dictionary = { data: res };
+        return result;
+      } else if (typeof res === "object" && res !== null) {
+        const result: Dictionary = res as Dictionary;
+        return result;
+      } else {
+        throw new AxiosError("invalid response");
+      }
+    } catch {
+      const agent = new https.Agent({ family: 4 });
+      finalConfig[ "httpsAgent" ] = agent;
+      const res: any = await Mother.axiosRequest(url, data, finalConfig);
+      if (typeof res === "string" || Array.isArray(res)) {
+        const result: Dictionary = { data: res };
+        return result;
+      } else if (typeof res === "object" && res !== null) {
+        const result: Dictionary = res as Dictionary;
+        return result;
+      } else {
+        throw new AxiosError("invalid response");
+      }
+    }
   }
 
   public static autoComma = (str: number | string, manVersion: boolean = false): string => {
@@ -1991,6 +1791,46 @@ class Mother {
     }
   }
 
+  public static generalLog = async (text: string): Promise<any> => {
+    try {
+      const logFile: string = path.join(Mother.logFolder, "general.log");
+      await fsPromise.appendFile(logFile, text, "utf8");
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  }
+
+  public static messageLog = async (text: string): Promise<any> => {
+    try {
+      const logFile: string = path.join(Mother.logFolder, "message.log");
+      await fsPromise.appendFile(logFile, text, "utf8");
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  }
+
+  public static alertLog = async (text: string): Promise<any> => {
+    try {
+      const logFile: string = path.join(Mother.logFolder, "alert.log");
+      await fsPromise.appendFile(logFile, text, "utf8");
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  }
+
+  public static errorLog = async (text: string): Promise<any> => {
+    try {
+      const logFile: string = path.join(Mother.logFolder, "error.log");
+      await fsPromise.appendFile(logFile, text, "utf8");
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  }
+
   public static variableArray = (length: number, callback: (a?: any) => any): List => {
     if (typeof length !== "number") {
       throw new Error("invaild input")
@@ -2004,6 +1844,210 @@ class Mother {
       }
     }
     return targetArray;
+  }
+
+  public static zipFile = async (
+    targetFolder: string,
+    toFile: string = "",
+    epubMode: boolean = false,
+    deleteTimeout: number = -1,
+    deleteTarget: string = "",
+  ): Promise<Buffer> => {
+    try {
+      if (/\.epub/gi.test(toFile)) {
+        epubMode = true;
+      }
+      const zip = new JSZip();
+      const absoluteTargetFolder: string = path.resolve(targetFolder);
+      const stats = await fsPromise.stat(absoluteTargetFolder);
+      if (!stats.isDirectory()) {
+        throw new Error("target must be folder");
+      }
+      const extension: string = epubMode ? ".epub" : ".zip";
+      const parentDir = path.dirname(absoluteTargetFolder);
+
+      let absoluteTargetFile: string;
+      if (toFile !== "") {
+        if ((new RegExp(path.sep, "gi")).test(toFile)) {
+          absoluteTargetFile = path.resolve(toFile);
+        } else {
+          absoluteTargetFile = path.resolve(path.join(parentDir, toFile));
+        }
+        if (path.extname(absoluteTargetFile).toLowerCase() !== extension) {
+          absoluteTargetFile = absoluteTargetFile + extension;
+        }
+      } else {
+        const tempName = `tempZip_${ Unique.hex() }${ extension }`;
+        absoluteTargetFile = path.join(parentDir, tempName);
+      }
+      const outputDir: string = path.dirname(absoluteTargetFile);
+      await fsPromise.mkdir(outputDir, { recursive: true });
+
+      if (epubMode) {
+        zip.file("mimetype", "application/epub+zip", {
+          compression: "STORE"
+        });
+      }
+
+      const queue: { abs: string; rel: string }[] = [ { abs: absoluteTargetFolder, rel: "" } ];
+      while (queue.length > 0) {
+        const { abs, rel } = queue.shift()!;
+        const entries = await fsPromise.readdir(abs, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(abs, entry.name);
+          const relPath = path.join(rel, entry.name).replace(/\\/g, '/');
+          if (epubMode && relPath.toLowerCase() === "mimetype") {
+            continue;
+          }
+          if (entry.isDirectory()) {
+            queue.push({ abs: fullPath, rel: relPath });
+          } else if (entry.isFile()) {
+            const buffer = await fsPromise.readFile(fullPath);
+            const ext = path.extname(relPath).toLowerCase();
+            const isBinary = /\.(png|jpe?g|webp|avif|woff2?|ttf|otf|eot|ico|mp[34]|zip|gz)$/.test(ext);
+            zip.file(relPath, buffer, {
+              compression: "DEFLATE",
+              compressionOptions: { level: isBinary ? 3 : 6 }
+            });
+          }
+        }
+      }
+
+      const resultBuffer: Buffer = await zip.generateAsync({ type: "nodebuffer" });
+      await fsPromise.writeFile(absoluteTargetFile, resultBuffer)
+
+      if (typeof deleteTimeout === "number" && deleteTimeout > 1) {
+        setTimeout(async () => {
+          try {
+            if (deleteTarget !== "") {
+              await fsPromise.rm(deleteTarget, { recursive: true, force: true });
+            } else {
+              await fsPromise.rm(absoluteTargetFile, { recursive: true, force: true });
+            }
+          } catch {}
+        }, deleteTimeout);
+      }
+
+      return resultBuffer;
+    } catch (e) {
+      console.log(e)
+      throw e;
+    }
+  }
+
+  public static unzipFile = async (zipFilePath: string): Promise<string> => {
+    try {
+      const absoluteZipPath = path.resolve(zipFilePath);
+      try {
+        await fsPromise.access(absoluteZipPath, fsPromise.constants.R_OK);
+      } catch (e) {
+        throw new Error(`Cannot access zip file: ${ absoluteZipPath }`);
+      }
+
+      const zipDir = path.dirname(absoluteZipPath);
+      const zipExt = path.extname(absoluteZipPath);
+      const baseName = path.basename(absoluteZipPath, zipExt);
+      const outputFolderPath = path.join(zipDir, baseName);
+
+      await fsPromise.mkdir(outputFolderPath, { recursive: true });
+      const zipFileData: Buffer = await fsPromise.readFile(absoluteZipPath);
+
+      const zip = new JSZip();
+      const loadedZip = await zip.loadAsync(zipFileData);
+
+      for (const relativePath in loadedZip.files) {
+        if (
+          !/^__MACOSX/.test(relativePath) &&
+          !/\/__MACOSX\//g.test(relativePath) &&
+          !/\/\._/.test(relativePath) &&
+          !/\.DS_Store$/.test(relativePath)
+        ) {
+          const zipEntry = loadedZip.files[ relativePath ];
+          const fullOutputPath = path.join(outputFolderPath, relativePath);
+          const normalizedOutputPath = path.normalize(fullOutputPath);
+          if (zipEntry.dir) {
+            await fsPromise.mkdir(normalizedOutputPath, { recursive: true });
+          } else {
+            const fileDir = path.dirname(normalizedOutputPath);
+            await fsPromise.mkdir(fileDir, { recursive: true });
+            const contentBuffer = await zipEntry.async('nodebuffer');
+            await fsPromise.writeFile(normalizedOutputPath, contentBuffer);
+          }
+        }
+      }
+
+      return outputFolderPath;
+    } catch (error) {
+      console.error(`Error unzipping file ${ zipFilePath }:`, error);
+      throw error;
+    }
+  }
+
+  public static treeParsing = async (rootPath: string): Promise<TreeArray> => {
+    if (/^\./.test(rootPath)) {
+      rootPath = Mother.appPath + rootPath.slice(1);
+    }
+    rootPath = path.normalize(rootPath);
+    try {
+      await fsPromise.access(rootPath);
+    } catch (e) {
+      console.error(`경로를 찾을 수 없습니다: ${ rootPath }`);
+      throw e;
+    }
+    const buildTreeRecursive = async (currentPath: string): Promise<TreeFile[]> => {
+      const entries: Dirent<string>[] = await fsPromise.readdir(currentPath, { withFileTypes: true });
+      const files: TreeFile[] = [];
+      for (const entry of entries) {
+        if (entry.name === '.DS_Store') continue;
+        const fullPath = path.join(currentPath, entry.name);
+        const node: TreeFile = {
+          fileName: entry.name,
+          absolute: fullPath,
+          directory: entry.isDirectory(),
+          hidden: entry.name.startsWith('.'),
+          length: fullPath.split(path.sep).length,
+        };
+        if (node.directory) {
+          node.files = await buildTreeRecursive(fullPath);
+        }
+        files.push(node);
+      }
+      return files;
+    };
+
+    const rootName = path.basename(rootPath);
+    const tree = new TreeArray(rootPath);
+    const rootNode: TreeFile = {
+      fileName: rootName,
+      absolute: rootPath,
+      directory: true,
+      hidden: rootName.startsWith('.'),
+      length: rootPath.split(path.sep).length,
+      files: await buildTreeRecursive(rootPath),
+    };
+    tree.push(rootNode);
+
+    tree.flatDeath = [];
+    const treeFileForEach = (k: TreeFile) => {
+      if (k.files !== undefined) {
+        for (let d of k.files) {
+          treeFileForEach(d);
+        }
+      } else {
+        tree.flatDeath.push(k);
+      }
+    }
+    for (let t of tree) {
+      treeFileForEach(t);
+    }
+    tree.flatDeath = tree.flatDeath.map((t) => {
+      if (t.files !== undefined) {
+        delete t.files;
+      }
+      return t;
+    });
+
+    return tree;
   }
 
   public static sha256Hmac = async (key: string, message: string, type: any = "base64") => {
@@ -2278,49 +2322,76 @@ class Mother {
   }
 
   public static fileToMimetype = (fileName: string): string => {
-    const extensionMimeTypeMap: { [key: string]: string } = {
-      'html': 'text/html',
-      'htm': 'text/html',
-      'xhtml': 'application/xhtml+xml',
-      'css': 'text/css',
-      'opf': 'application/oebps-package+xml',
-      'js': 'text/javascript',
-      'mjs': 'text/javascript',
-      'json': 'application/json',
-      'xml': 'application/xml',
-      'txt': 'text/plain',
-      'png': 'image/png',                 // Portable Network Graphics
-      'apng': 'image/apng',              // Animated Portable Network Graphics
-      'jpg': 'image/jpeg',               // Joint Photographic Experts Group
-      'jpeg': 'image/jpeg',              // Joint Photographic Experts Group
-      'jfif': 'image/jpeg',              // JPEG File Interchange Format (often uses .jpg)
-      'pjpeg': 'image/jpeg',             // Progressive JPEG (often uses .jpg)
-      'pjp': 'image/jpeg',               // Progressive JPEG (often uses .jpg)
-      'gif': 'image/gif',                // Graphics Interchange Format
-      'svg': 'image/svg+xml',            // Scalable Vector Graphics
-      'webp': 'image/webp',              // WebP image format
-      'ico': 'image/x-icon',             // Icon format (also image/vnd.microsoft.icon)
-      'cur': 'image/x-icon',             // Windows cursor format
-      'bmp': 'image/bmp',                // Bitmap image file
-      'tif': 'image/tiff',               // Tagged Image File Format
-      'tiff': 'image/tiff',              // Tagged Image File Format
-      'avif': 'image/avif', 
-      'woff': 'font/woff',
-      'woff2': 'font/woff2',
-      'ttf': 'font/ttf',
-      'otf': 'font/otf',
-      'eot': 'application/vnd.ms-fontobject',
-      'pdf': 'application/pdf',
-      'zip': 'application/zip',
-      'rar': 'application/vnd.rar',      // RAR archive (non-standard but common)
-      'tar': 'application/x-tar',        // Tape Archive
-      'gz': 'application/gzip',          // Gzip compressed archive
-      '7z': 'application/x-7z-compressed',// 7-Zip archive    
-      'mp3': 'audio/mpeg',
-      'wav': 'audio/wav',
-      'ogg': 'audio/ogg',
-      'mp4': 'video/mp4',
-      'webm': 'video/webm',
+    const extensionMimeTypeMap: { [ key: string ]: string } = {
+      aac: "audio/aac",
+      abw: "application/x-abiword",
+      arc: "application/octet-stream",
+      mkv: "video/x-matroska",
+      avi: "video/x-msvideo",
+      flac: "audio/flac",
+      azw: "application/vnd.amazon.ebook",
+      bin: "application/octet-stream",
+      bz: "application/x-bzip",
+      bz2: "application/x-bzip2",
+      csh: "application/x-csh",
+      css: "text/css",
+      csv: "text/csv",
+      doc: "application/msword",
+      epub: "application/epub+zip",
+      gif: "image/gif",
+      html: "text/html",
+      htm: "text/html",
+      ts: "text/typescript",
+      ico: "image/x-icon",
+      ics: "text/calendar",
+      jar: "application/java-archive",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      mjs: "application/js", js: "application/js", json: "application/json", mid: "audio/midi", midi: "audio/midi",
+      mpeg: "video/mpeg", mpkg: "application/vnd.apple.installer+xml", odp: "application/vnd.oasis.opendocument.presentation",
+      ods: "application/vnd.oasis.opendocument.spreadsheet", odt: "application/vnd.oasis.opendocument.text", oga: "audio/ogg",
+      ogv: "video/ogg", ogx: "application/ogg", pdf: "application/pdf", ppt: "application/vnd.ms-powerpoint",
+      rar: "application/x-rar-compressed", rtf: "application/rtf", sh: "application/x-sh", svg: "image/svg+xml",
+      swf: "application/x-shockwave-flash", tar: "application/x-tar", tif: "image/tiff", tiff: "image/tiff",
+      ttf: "application/x-font-ttf", vsd: "application/vnd.visio", wav: "audio/x-wav", weba: "audio/webm",
+      webm: "video/webm", webp: "image/webp", woff: "application/x-font-woff",
+      xhtml: "application/xhtml+xml",
+      xls: "application/vnd.ms-excel",
+      xml: "application/xml",
+      xul: "application/vnd.mozilla.xul+xml",
+      zip: "application/zip",
+      "3gp": "video/3gpp",
+      "3g2": "video/3gpp2",
+      "7z": "application/x-7z-compressed",
+      "opf": "application/oebps-package+xml",
+      "txt": "text/plain",
+      "png": "image/png",
+      "apng": "image/apng",
+      "jfif": "image/jpeg",
+      "pjpeg": "image/jpeg",
+      "psd": "image/vnd.adobe.photoshop",
+      "pjp": "image/jpeg",
+      "cur": "image/x-icon",
+      "bmp": "image/bmp",
+      "avif": "image/avif",
+      "woff2": "font/woff2",
+      "otf": "font/otf",
+      "eot": "application/vnd.ms-fontobject",
+      "gz": "application/gzip",
+      "mp3": "audio/mpeg",
+      "ogg": "audio/ogg",
+      "mp4": "video/mp4",
+      "md": "text/markdown",
+      "heic": "image/heic",
+      "heif": "image/heif",
+      "opus": "audio/opus",
+      "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "hwp": "application/haansofthwp",
+      "hwpx": "application/vnd.hancom.hwpx",
+      "indd": "application/x-indesign",
+      "ncx": "application/x-dtbncx+xml",
     };
 
     if (!fileName || typeof fileName !== 'string') {
@@ -2433,105 +2504,6 @@ class Mother {
     } catch (e) {
       console.log(e);
       return null;
-    }
-  }
-
-  public static diskReading = async (mode: string = "check", arr: Dictionary | List = []): Promise<any> => {
-    if (![ "check", "view" ].includes(mode)) {
-      throw new Error("invaild input");
-    }
-    class Disk extends Array {
-      public byte: any;
-      public megaByte: any;
-      public gigaByte: any;
-      public percentage: any;
-
-      constructor (total: number, used: number, available: number) {
-        super();
-        this.push(total);
-        this.push(used);
-        this.push(available);
-        const usedPercentage = Math.round(((used / total) * 100) * 100) / 100;
-        const obj: Dictionary = {
-          byte: { total, used, available },
-          megaByte: {
-            total: Math.round((total / (1024)) * 10) / 10,
-            used: Math.round((used / (1024)) * 10) / 10,
-            available: Math.round((available / (1024)) * 10) / 10,
-          },
-          gigaByte: {
-            total: Math.round((total / (1024 * 1024)) * 100) / 100,
-            used: Math.round((used / (1024 * 1024)) * 100) / 100,
-            available: Math.round((available / (1024 * 1024)) * 100) / 100,
-          },
-          percentage: {
-            total: 100,
-            used: usedPercentage,
-            available: 100 - usedPercentage
-          }
-        };
-        for (let key in obj) {
-          Object.defineProperty(this, key, {
-            value: obj[key],
-            writable: true,
-          })
-        }
-      }
-
-      public toNormal = (): Dictionary => {
-        let obj: Dictionary = {};
-        obj.byte = JSON.parse(JSON.stringify(this.byte));
-        obj.megaByte = JSON.parse(JSON.stringify(this.megaByte));
-        obj.gigaByte = JSON.parse(JSON.stringify(this.gigaByte));
-        obj.percentage = JSON.parse(JSON.stringify(this.percentage));
-        return obj;
-      }
-
-      public toArray = (): List => {
-        return [ this[0], this[1], this[2] ];
-      }
-
-      public toPercentage = (): Dictionary => {
-        return { gigaByte: this.gigaByte, percentage: this.percentage };
-      }
-    }
-    if (mode === "check") {
-      const checkFunc = () => {
-        const command = "df -Pk -- /";
-        return new Promise((resolve, reject) => {
-          exec(command, { cwd: process.cwd(), maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
-            if (error) {
-              reject(error);
-            } else {
-              const [ , totalRaw, , availableRaw ] = stdout.trim().split("\n").map((str) => { return str.trim() })[1].split(' ').filter((str) => { return str.trim() !== '' });
-              const total = Number(totalRaw);
-              const available = Number(availableRaw);
-              const used = total - available;
-              resolve(new Disk(total, used, available));
-            }
-          });
-        });
-      }
-      try {
-        return (await checkFunc());
-      } catch (e) {
-        console.log(e);
-        return null;
-      }
-    } else if (mode === "view") {
-      if (!Array.isArray(arr)) {
-        throw new Error("invaild input 2");
-      }
-      if (arr.length !== 3) {
-        throw new Error("invaild input => arr must be [ total, used, available ]");
-      }
-      if (!arr.every((n) => { return typeof n === "number" })) {
-        throw new Error("invaild input => arr must be [ total, used, available ]");
-      }
-      const a = arr as List;
-      const disk = new Disk(a[0], a[1], a[2]);
-      console.table(disk.toPercentage());
-      return disk;
     }
   }
 
@@ -2894,6 +2866,55 @@ class Mother {
         return numberToKorean(ordinalStringOrNumber) + " 번째";
       }
     }
+  }
+
+  public static prototypeMethod = (targetObject: Dictionary): Dictionary => {
+    if (targetObject === null || typeof targetObject !== "object") {
+      throw new Error("invalid input");
+    }
+    let keyListRaw: List;
+    let keyList: List;
+    let valueList: List;
+    let methodList: List;
+
+    type StringKeysOnly<T> = Extract<keyof T, string>;
+    type TargetObjectStringKeys = StringKeysOnly<typeof targetObject>;
+
+    keyListRaw = Object.getOwnPropertyNames(targetObject);
+
+    keyList = [];
+    methodList = [];
+    valueList = [];
+
+    for (let key of keyListRaw) {
+      if (typeof key === "string" && typeof key !== "symbol") {
+        keyList.push(key);
+        valueList.push(targetObject[ key as TargetObjectStringKeys ]);
+        if (typeof targetObject[ key as TargetObjectStringKeys ] === "function") {
+          methodList.push(targetObject[ key as TargetObjectStringKeys ]);
+        }
+      }
+    }
+
+    return { key: keyList, value: valueList, method: methodList };
+  }
+
+  public static camelToSnake = (camelString: string): string => {
+    const chars: string[] = camelString.split("");
+    const length: number = chars.length;
+    let snakeString: string;
+
+    snakeString = "";
+    for (let i = 0; i < length; i++) {
+      const c = chars[ i ];
+      if (/[A-Z]/g.test(c)) {
+        snakeString += "-" + c.toLowerCase();
+      } else {
+        snakeString += c;
+      }
+    }
+
+    return snakeString;
   }
 
 }

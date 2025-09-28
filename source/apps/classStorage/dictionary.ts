@@ -1,3 +1,5 @@
+import { IpcMainInvokeEvent, IpcRendererEvent, IpcMainEvent } from "electron";
+
 export interface Dictionary {
   [ key: string ]: any;
 }
@@ -12,6 +14,15 @@ export interface IdDictionary {
 
 export interface StringDictionary {
   [ key: string ]: string;
+}
+
+export type UnknownFunction = (...args: any[]) => Promise<any> | any;
+
+export type ElectronSocketSend = {
+  type: string;
+  requestId: string;
+  data: Blob | ArrayBuffer;
+  field: Dictionary;
 }
 
 export type List = Array<any>;
@@ -34,6 +45,55 @@ export interface StartEndDictionary {
   start: Date;
   end: Date;
   duration: number;
+}
+
+export interface FlatDeathObject {
+  directory: boolean;
+  fileName: string;
+  hidden: boolean;
+  absolute: string;
+  length: number;
+}
+
+export type FlatDeath = Array<FlatDeathObject>;
+
+export interface SocketMessage {
+  status: string;
+  requestId: string;
+  data: Dictionary | Blob;
+}
+
+export type RouterFunction = (event: IpcMainInvokeEvent, ...args: string[]) => Promise<Dictionary>
+
+export interface RouterUnit {
+  link: string;
+  func: RouterFunction;
+}
+
+export type ChannelFunction = (event: IpcMainEvent, ...args: string[]) => Promise<void>
+
+export interface ChannelUnit {
+  link: string;
+  func: ChannelFunction;
+}
+
+export interface RouterObject {
+  handle: RouterUnit[];
+  on: ChannelUnit[];
+}
+
+export type BlobBuffer = { buffer: ArrayBuffer; mimetype: string; };
+
+export type SocketFunction = (data: ArrayBuffer, field: Dictionary) => Promise<BlobBuffer | Dictionary>
+
+export interface SocketUnit {
+  link: string;
+  func: SocketFunction;
+}
+
+export interface FormDictionary {
+  data: Blob;
+  field: Dictionary;
 }
 
 export type Matrix = Array<any[]>;
@@ -103,4 +163,4 @@ export class Unique {
 
 }
 
-export type FileSystemType = "read" | "readBuffer" | "readString" | "readFirstString" | "readFirstBuffer" | "readBinary" | "readJson" | "readDir" | "readFolder" | "readFolderContents" | "readFolderByCondition" | "readHead" | "readStream" | "write" | "writeString" | "writeBinary" | "writeJson" | "writeModule" | "size" | "mkdir" | "exist" | "isDir" | "remove" | "open" | "copyFile" | "copyFolder" | "copyDir" | "move";
+export type FileSystemType = "readString" | "readJson" | "readBuffer" | "readFolder" | "writeString" | "writeBuffer" | "writeBinary" | "mkdir" | "exist" | "isDir" | "remove" | "copyFile" | "copyFolder" | "move";

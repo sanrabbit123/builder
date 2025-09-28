@@ -27,10 +27,10 @@ class Mother {
   public static launcherPath: string = path.join(Mother.resourcePath, "./launcher");
   public static programPath: string = path.normalize(Mother.launcherPath);
   public static javaProgram: string = Mother.isDev ? path.join(Mother.launcherPath, "./jre/mac-arm64/bin/java") : path.join(Mother.launcherPath, "./jre/bin/java" + (!Mother.isWindows ? "" : ".exe"));
-  public static python3Program: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/bin/python3.13") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/bin/python3.13") : path.join(Mother.launcherPath, "./python3/python.exe"));
-  public static pythonModulePath: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/lib/python3.13/site-packages/bin") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/lib/python3.13/site-packages/bin") : path.join(Mother.launcherPath, "./lib/python3.13/site-packages/bin"));
+  public static python3Program: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/bin/python3.13") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/bin/python3.13") : path.join(Mother.launcherPath, "./python.exe"));
+  public static pythonModulePath: string = Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/lib/python3.13/site-packages/bin") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/lib/python3.13/site-packages/bin") : path.join(Mother.launcherPath, "./python313/site-packages/bin"));
   public static pythonScriptPath: string = path.join(Mother.resourcePath, "./launcher/py");
-  public static browserPath: string = Mother.isDev ? path.join(Mother.launcherPath, "./browser/mac-arm64/Chromium.app/Contents/MacOS/Chromium") : (Mother.isMac ? path.join(Mother.launcherPath, "./browser/Chromium.app/Contents/MacOS/Chromium") : path.join(Mother.launcherPath, "./browser/chromium.exe"));
+  public static browserPath: string = Mother.isDev ? path.join(Mother.launcherPath, "./browser/mac-arm64/Chromium.app/Contents/MacOS/Chromium") : (Mother.isMac ? path.join(Mother.launcherPath, "./browser/Chromium.app/Contents/MacOS/Chromium") : path.join(Mother.launcherPath, "./chrome-win/chrome.exe"));
   public static requestSecretKey: string = ADDRESS.abstractinfo.key;
   public static requestSecretValue: string = "Uragen " + ADDRESS.abstractinfo.host.replace(/[\.\/\\\-]/gis, "");
   public static abstractTempFolderName: string = "abstract_cloud_temp_folder";

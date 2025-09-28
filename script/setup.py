@@ -9,26 +9,13 @@ from os import path as osPath
 class PythonInstall:
     def __init__(self):
         self.install = [
-            [ "quart" ],
-            [ "quart-uploads" ],
-            [ "argparse" ],
-            [ "requests" ],
-            [ "requests-toolbelt" ],
             [ "html5lib" ],
             [ "aiohttp" ],
             [ "aiofiles" ],
             [ "getmac" ],
             [ "netifaces" ],
             [ "apscheduler" ],
-            [ "pillow" ],
-            [ "colour" ],
-            [ "colour-science" ],
-            [ "opencv-python" ],
-            [ "opencv-contrib-python" ],
-            [ "hypercorn" ],
             [ "fonttools" ],
-            [ "pyopenssl" ],
-            [ "typing-extensions", "--upgrade" ],
         ]
 
         self.upgrade = []
@@ -38,33 +25,33 @@ class PythonInstall:
         now = time.gmtime(time.time())
         tempDirName = "pythonModuleInstall" + str(now.tm_year) + str(now.tm_mon) + str(now.tm_mday) + str(now.tm_hour) + str(now.tm_min) + str(now.tm_sec)
         self.tempDir = self.homeDir + "/" + tempDirName
-
         thisFileArr = os.getcwd().split('/')
         self.rabbitPath = '/'.join(thisFileArr)
-        self.moduleFolder = "python_modules"
-        self.modulePath = self.rabbitPath + "/" + self.moduleFolder
 
     def setTempDir(self):
         os.makedirs(self.tempDir)
 
-    def moduleInstall(self, local=True):
+    def moduleInstall(self, local=True, folder=""):
         target = "--target=" + self.tempDir
         for module in self.install:
             commandList = []
-            commandList.append("pip3")
+            if folder == "":
+                commandList.append("pip3")
+            else:
+                commandList.append(os.getcwd() + f"/launcher/python3/{folder}/bin/pip3")
             commandList.append("install")
             for m in module:
                 commandList.append(m)
             commandList.append(target)
             subprocess.run(commandList, shell=False, encoding='utf8')
 
-    def installServer(self):
+    def installServer(self, thisType="mac-arm64"):
         self.setTempDir()
-        self.moduleInstall(local=True)
+        self.moduleInstall(local=True, folder=thisType)
 
 try:
     installApps = PythonInstall()
-    installApps.installServer()
+    installApps.installServer(thisType=sys.argv[1])
 
 except Exception as e:
     print(e)

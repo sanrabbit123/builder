@@ -5,7 +5,6 @@ import querystring from "querystring";
 import fsPromise from "fs/promises";
 import { Dirent } from "fs";
 import fs from "fs";
-import os from "os";
 import { exec, spawn } from "child_process";
 import path from "path";
 import axios, { AxiosError, AxiosResponse } from "axios";

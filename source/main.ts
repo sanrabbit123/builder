@@ -162,7 +162,7 @@ class Turtle {
     }
   }
 
-  public deleteCspHeader = () => {
+  public updateCspHeader = () => {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       const headers = details.responseHeaders || {};
       const cspHeaderKey = Object.keys(headers).find(k => k.toLowerCase() === "content-security-policy");
@@ -172,6 +172,28 @@ class Turtle {
       }
       callback({ responseHeaders: headers });
     });
+  }
+
+  public logMotherProperties = () => {
+    console.log(`isMac`, process.platform === "darwin");
+    console.log(`isWindows`, /win32/gi.test(process.platform));
+    console.log(`isDev`, !app.isPackaged);
+    console.log(`appPath`, app.getAppPath());
+    console.log(`resourcePath`, Mother.isDev ? app.getAppPath() : process.resourcesPath);
+    console.log(`scriptPath`, path.join(app.getAppPath(), "dist"));
+    console.log(`assetPath`, path.join(Mother.appPath, "./renderer"));
+    console.log(`launcherPath`, path.join(Mother.resourcePath, "./launcher"));
+    console.log(`programPath`, path.normalize(Mother.launcherPath));
+    console.log(`javaProgram`, Mother.isDev ? path.join(Mother.launcherPath, "./jre/mac-arm64/bin/java") : path.join(Mother.launcherPath, "./jre/bin/java" + (!Mother.isWindows ? "" : ".exe")));
+    console.log(`python3Program`, Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/bin/python3.13") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/bin/python3.13") : path.join(Mother.launcherPath, "./python.exe")));
+    console.log(`pythonModulePath`, Mother.isDev ? path.join(Mother.launcherPath, "./python3/mac-arm64/lib/python3.13/site-packages/bin") : (Mother.isMac ? path.join(Mother.launcherPath, "./python3/lib/python3.13/site-packages/bin") : path.join(Mother.launcherPath, "./python313/site-packages/bin")));
+    console.log(`pythonScriptPath`, path.join(Mother.resourcePath, "./launcher/py"));
+    console.log(`browserPath`, Mother.isDev ? path.join(Mother.launcherPath, "./browser/mac-arm64/Chromium.app/Contents/MacOS/Chromium") : (Mother.isMac ? path.join(Mother.launcherPath, "./browser/Chromium.app/Contents/MacOS/Chromium") : path.join(Mother.launcherPath, "./chrome-win/chrome.exe")));
+    console.log(`abstractTempFolderName`, "abstract_cloud_temp_folder");
+    console.log(`tempFolder`, path.join(app.getPath("temp"), path.normalize(Mother.abstractTempFolderName + "/temp")));
+    console.log(`staticFolder`, path.join(Mother.tempFolder, "static"));
+    console.log(`logFolder`, path.join(Mother.tempFolder, "logs"));
+    console.log(`homeFolder`, app.getPath("home"));
   }
 
   public main = async () => {
@@ -184,11 +206,11 @@ class Turtle {
     this.mainApp.commandLine.appendSwitch("ignore-gpu-blocklist");
     this.setIconPath();
     await this.mainApp.whenReady();
-    this.deleteCspHeader();
+    this.updateCspHeader();
     this.createWindow();
-    this.deleteCspHeader();
     this.readyThenRouting();
     this.setAppEvents();
+    this.logMotherProperties();
   }
 
 }

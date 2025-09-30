@@ -703,10 +703,8 @@ class TutleBuilder {
 
   public distSetting = async () => {
     const turtleDist: string = this.turtlePath + "/dist";
-
     await fsPromise.rm(turtleDist, { recursive: true, force: true, });
     await fsPromise.mkdir(turtleDist);
-
     const destDir = turtleDist;
     await fsPromise.mkdir(destDir, { recursive: true });
     await fsPromise.cp(this.rendererPath, turtleDist + "/renderer", { recursive: true });
@@ -716,7 +714,9 @@ class TutleBuilder {
     await this.versionInjection();
     await this.nextPackageVersion();
     await this.distSetting();
-    await this.requestJson(this.pushLocalServerUrl, { type: this.builderAppName });
+    try {
+      await this.requestJson(this.pushLocalServerUrl, { type: this.builderAppName });
+    } catch {}
   }
 
 }

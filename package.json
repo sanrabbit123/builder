@@ -1,6 +1,6 @@
 {
   "name": "abstractbuilder",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "EPUB 편집 및 시각화 도구",
   "main": "dist/main.js",
   "type": "module",
@@ -14,7 +14,10 @@
     "build2": "npm run compile && electron-builder --win --publish always",
     "macbuilder": "dotenv -e .env -- npm run build",
     "winbuilder": "dotenv -e .env -- npm run build2",
-    "dev": "npm run devcompile && npm run develectron"
+    "dev": "npm run devcompile && npm run develectron",
+    "static": "tsx ./script/builder.ts",
+    "mac": "npm run static && npm run macbuilder",
+    "win": "npm run static && npm run winbuilder"
   },
   "build": {
     "appId": "com.abstractcloud.abstractbuilder",

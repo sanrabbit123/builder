@@ -709,7 +709,7 @@ class TutleBuilder {
 
     const destDir = turtleDist;
     await fsPromise.mkdir(destDir, { recursive: true });
-    await fsPromise.cp(this.rendererPath, turtleDist + "/", { recursive: true });
+    await fsPromise.cp(this.rendererPath, turtleDist + "/renderer", { recursive: true });
   }
 
   public launching = async () => {

@@ -22,7 +22,7 @@ class Mother {
   public static isDev: boolean = !app.isPackaged;
   public static appPath: string = app.getAppPath();
   public static resourcePath: string = Mother.isDev ? app.getAppPath() : process.resourcesPath;
-  public static scriptPath: string = !Mother.isDev ? app.getAppPath() : path.join(app.getAppPath(), "dist");
+  public static scriptPath: string = path.join(app.getAppPath(), "dist");
   public static assetPath: string = path.join(Mother.appPath, "./renderer");
   public static launcherPath: string = path.join(Mother.resourcePath, "./launcher");
   public static programPath: string = path.normalize(Mother.launcherPath);

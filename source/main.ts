@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage, ipcMain, Notification, MessageChannelMain, MessageEvent, MessagePortMain, IpcMainInvokeEvent, IpcRendererEvent, IpcMainEvent } from "electron";
+import { app, session, BrowserWindow, nativeImage, ipcMain, Notification, MessageChannelMain, MessageEvent, MessagePortMain, IpcMainInvokeEvent, IpcRendererEvent, IpcMainEvent } from "electron";
 import { App } from "electron/main";
 import path from "path";
 import { existsSync } from "fs";
@@ -7,6 +7,11 @@ import process from "process";
 import { Mother } from "./apps/mother.js";
 import { RouterFunction, RouterObject, RouterUnit } from "./apps/classStorage/dictionary.js";
 import { TurtleRouter } from "./apps/turtleRouter/turtleRouter.js";
+import log from "electron-log";
+
+log.transports.file.resolvePathFn = () => path.join(app.getPath("logs"), "main.log");
+log.initialize();
+Object.assign(console, log.functions);
 
 class Turtle {
 
@@ -157,6 +162,18 @@ class Turtle {
     }
   }
 
+  public deleteCspHeader = () => {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      const headers = details.responseHeaders || {};
+      const cspHeaderKey = Object.keys(headers).find(k => k.toLowerCase() === "content-security-policy");
+      if (cspHeaderKey) {
+        headers[ cspHeaderKey ] = 
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://abstractcloud-press.com https://message.abstract-rabbit.xyz https://storage.abstract-rabbit.xyz data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://abstractcloud-press.com https://message.abstract-rabbit.xyz https://storage.abstract-rabbit.xyz https://wcs.naver.net https://www.googletagmanager.com https://ssl.pstatic.net https://*.google-analytics.com https://cs.l.naver.com https://connect.facebook.net data: blob:; connect-src *; img-src * data: blob:; style-src * 'unsafe-inline' data: blob:; font-src * data: blob:; media-src * data: blob:; base-uri 'self'; form-action 'self';frame-ancestors 'self';";
+      }
+      callback({ responseHeaders: headers });
+    });
+  }
+
   public main = async () => {
     const tempFolder: string = this.mainApp.getPath("temp");
     await fsPromise.mkdir(path.join(tempFolder, this.abstractTempFolderName), { recursive: true });
@@ -167,7 +184,9 @@ class Turtle {
     this.mainApp.commandLine.appendSwitch("ignore-gpu-blocklist");
     this.setIconPath();
     await this.mainApp.whenReady();
+    this.deleteCspHeader();
     this.createWindow();
+    this.deleteCspHeader();
     this.readyThenRouting();
     this.setAppEvents();
   }

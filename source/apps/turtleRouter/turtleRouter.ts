@@ -16,6 +16,10 @@ class TurtleRouter {
     this.epub = new EpubMaker();
   }
 
+  public setMainWindow = (mainWindow: BrowserWindow) => {
+    this.mainWindow = mainWindow;
+  }
+
   public rou_handle_windowMaximize = (): RouterFunction => {
     const instance = this;
     const { equalJson } = Mother;

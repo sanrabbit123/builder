@@ -36,6 +36,7 @@ class Turtle {
   public logFolder: string;
   public homeFolder: string;
   public abstractTempFolderName: string;
+  public router: TurtleRouter | null;
 
   constructor () {
     this.iconBaseDir = path.join(Mother.assetPath, "./designSource"); 
@@ -54,6 +55,7 @@ class Turtle {
     this.staticFolder = Mother.staticFolder;
     this.logFolder = Mother.logFolder;
     this.homeFolder = Mother.homeFolder;
+    this.router = null;
   }
 
   public setIconPath = () => {
@@ -73,7 +75,7 @@ class Turtle {
     }
   }
 
-  public createWindow = () => {
+  public createWindow = (): BrowserWindow => {
     if (this.iconPath && existsSync(this.iconPath)) {
       const iconImage = nativeImage.createFromPath(this.iconPath);
       if (this.mainApp.dock) {
@@ -120,6 +122,8 @@ class Turtle {
         this.mainWindow = null;
       });
     }
+
+    return this.mainWindow;
   }
 
   public readyThenRouting = () => {
@@ -132,6 +136,7 @@ class Turtle {
     for (let unit of routerObject.on) {
       ipcMain.on(unit.link, unit.func);
     }
+    this.router = router;
   }
 
   public setAppEvents = () => {
@@ -139,25 +144,28 @@ class Turtle {
 
     this.mainApp.on("activate", function () {
       if (BrowserWindow.getAllWindows().length === 0) {
-        instance.createWindow();
+        instance.mainWindow = instance.createWindow();
+        if (instance.router !== null) {
+          instance.router.setMainWindow(instance.mainWindow);
+        }
       }
     });
 
     this.mainApp.on("window-all-closed", () => {
-      if (process.platform !== "darwin") {
-        instance.mainApp.quit();
-      }
+      instance.mainApp.quit();
     });
     
     if (process.env.NODE_ENV === "development") {
       this.mainApp.on("certificate-error", (event, webContents, url, error, certificate, callback) => {
         const requestUrl = new URL(url);
-        if (requestUrl.hostname === instance.devServerUrl.hostname && requestUrl.port === instance.devServerUrl.port) {
-          event.preventDefault();
-          callback(true);
-        } else {
-          callback(false);
-        }
+        event.preventDefault();
+        callback(true);
+        // if (requestUrl.hostname === instance.devServerUrl.hostname && requestUrl.port === instance.devServerUrl.port) {
+        //   event.preventDefault();
+        //   callback(true);
+        // } else {
+        //   callback(false);
+        // }
       });
     }
   }
